@@ -1,2 +1,2 @@
-FROM hello-world
+FROM ubuntu
 RUN ls
