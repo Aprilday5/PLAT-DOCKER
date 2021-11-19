@@ -6,8 +6,423 @@
 
 package main
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+	"strings"
+	"time"
 
-func main() {
-	fmt.Println("hello")
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
+)
+
+func version(w http.ResponseWriter, r *http.Request) {
+
+	// r.ParseForm()       //解析参数，默认是不会解析的
+	// fmt.Println(r.Form) //这些信息是输出到服务器端的打印信息
+	// fmt.Println("path", r.URL.Path)
+	// fmt.Println("scheme", r.URL.Scheme)
+	// fmt.Println(r.Form["url_long"])
+	// for k, v := range r.Form {
+	// 	fmt.Println("key:", k)
+	// 	fmt.Println("val:", strings.Join(v, ""))
+	// }
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	if err != nil {
+		panic(err)
+	}
+	images, err := cli.ImageList(ctx, types.ImageListOptions{})
+	if err != nil {
+		panic(err)
+	}
+
+	for _, image := range images {
+		fmt.Println(image.RepoTags[0])
+		for _, tag := range image.RepoTags {
+			if strings.Contains(tag, "muchener/testcommitcp") { //版本不同
+				// if tag == "muchener/testcommitcp:v1" {
+				fmt.Fprintf(w, tag)
+				break
+			}
+		}
+
+	}
+
+	fmt.Fprintf(w, "Hello Wrold3!") //这个写入到w的是输出到客户端的
 }
+func loadImage(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	if err != nil {
+		panic(err)
+	}
+
+	// reader, err := cli.ImagePull(ctx, "docker.io/library/alpine", types.ImagePullOptions{})
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// io.Copy(os.Stdout, reader)
+	file, err := os.Open("/root/test.tar")
+	if err != nil {
+		fmt.Println("err=", err)
+	}
+	imageLoadResponse, err := cli.ImageLoad(ctx, file, true)
+	if err != nil {
+		panic(err)
+	}
+	body, err := ioutil.ReadAll(imageLoadResponse.Body)
+	if err != nil {
+		fmt.Println(" load err=", err)
+	}
+	fmt.Println(string(body))
+
+	resp, err := cli.ContainerCreate(ctx, &container.Config{
+		Image: "muchener/testcommitcp:v1", //muchener/testcommitcp:v1
+		Cmd:   []string{"echo", "hello world"},
+	}, nil, nil, nil, "gddockerapp2")
+	if err != nil {
+		panic(err)
+	}
+
+	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+		panic(err)
+	}
+
+	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			panic(err)
+		}
+	case <-statusCh:
+	}
+
+	out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
+	if err != nil {
+		panic(err)
+	}
+
+	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
+	fmt.Fprintf(w, "image load success!") //这个写入到w的是输出到客户端的
+}
+
+func containersList(w http.ResponseWriter, r *http.Request) {
+
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	if err != nil {
+		panic(err)
+	}
+	options := types.ContainerListOptions{
+		All: true,
+	}
+	containers, err := cli.ContainerList(ctx, options)
+	if err != nil {
+		panic(err)
+	}
+	for _, container := range containers {
+		fmt.Println(container.Names)
+		fmt.Fprintf(w, container.Names[0])
+		fmt.Fprintf(w, "\n")
+	}
+	fmt.Fprintf(w, "containersList\n")
+}
+func getIDbyContainerName(containername string) string {
+	containerID := "containerid"
+	//获取容器名对应的容器id
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	if err != nil {
+		panic(err)
+	}
+	options := types.ContainerListOptions{
+		All: true,
+	}
+	containers, err := cli.ContainerList(ctx, options)
+	if err != nil {
+		panic(err)
+	}
+	for _, container := range containers {
+		fmt.Println(container.Names, container.ID, containername)
+		//fmt.Println(container.Names[0]) //[/determined_haslett]
+		if container.Names[0] == "/"+containername {
+			containerID = container.ID
+			break
+		}
+	}
+	return containerID
+}
+func containersDelete(w http.ResponseWriter, r *http.Request) {
+	var containerName string
+	containerID := "containerid"
+
+	r.ParseForm()
+	for k, v := range r.Form {
+		fmt.Println("key:", k)
+		fmt.Println("val:", strings.Join(v, ""))
+		if k == "containername" {
+			containerName = v[0]
+			break
+		}
+	}
+	//获取容器名对应的容器id
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	if err != nil {
+		panic(err)
+	}
+
+	containerID = getIDbyContainerName(containerName)
+	if containerID == "containerid" {
+		fmt.Fprintf(w, "No container named %s\n", containerName)
+	} else {
+		//删除容器
+		err = cli.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{
+			RemoveVolumes: true,
+			Force:         true,
+		})
+		if err != nil {
+			panic(err)
+		}
+		fmt.Fprintf(w, "containers %s Delete success!\n", containerName)
+	}
+}
+func containerStart(w http.ResponseWriter, r *http.Request) {
+	var containerName string
+	containerID := "containerid"
+
+	r.ParseForm()
+	for k, v := range r.Form {
+		fmt.Println("key:", k)
+		fmt.Println("val:", strings.Join(v, ""))
+		// if strings.Contains(k, "containername") {
+		if k == "containername" {
+			containerName = v[0]
+			break
+		}
+	}
+	//获取容器名对应的容器id
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	if err != nil {
+		panic(err)
+	}
+	containerID = getIDbyContainerName(containerName)
+	if containerID == "containerid" {
+		fmt.Fprintf(w, "No container named %s\n", containerName)
+	} else {
+		//start容器
+		err = cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
+		if err != nil {
+			panic(err)
+		}
+		fmt.Fprintf(w, "containers %s start success!\n", containerName)
+	}
+}
+func containerStop(w http.ResponseWriter, r *http.Request) {
+	var containerName string
+	containerID := "containerid"
+
+	r.ParseForm()
+	for k, v := range r.Form {
+		fmt.Println("key:", k)
+		fmt.Println("val:", strings.Join(v, ""))
+		// if strings.Contains(k, "containername") {
+		if k == "containername" {
+			containerName = v[0]
+			break
+		}
+	}
+	//获取容器名对应的容器id
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	if err != nil {
+		panic(err)
+	}
+	containerID = getIDbyContainerName(containerName)
+	if containerID == "containerid" {
+		fmt.Fprintf(w, "No container named %s\n", containerName)
+	} else {
+		//start容器
+		timeout := 100 * time.Second
+		err = cli.ContainerStop(ctx, containerID, &timeout)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Fprintf(w, "containers %s stop success!\n", containerName)
+	}
+}
+func containerRestart(w http.ResponseWriter, r *http.Request) {
+	var containerName string
+	containerID := "containerid"
+
+	r.ParseForm()
+	for k, v := range r.Form {
+		fmt.Println("key:", k)
+		fmt.Println("val:", strings.Join(v, ""))
+		// if strings.Contains(k, "containername") {
+		if k == "containername" {
+			containerName = v[0]
+			break
+		}
+	}
+	//获取容器名对应的容器id
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	if err != nil {
+		panic(err)
+	}
+	containerID = getIDbyContainerName(containerName)
+	if containerID == "containerid" {
+		fmt.Fprintf(w, "No container named %s\n", containerName)
+	} else {
+		//start容器
+		timeout := 100 * time.Second
+		err = cli.ContainerRestart(ctx, containerID, &timeout)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Fprintf(w, "containers %s restart success!\n", containerName)
+	}
+}
+func main() {
+
+	http.HandleFunc("/images/version", version) //设置访问的路由
+	http.HandleFunc("/images/load", loadImage)  //
+
+	http.HandleFunc("/container/list", containersList)      //http://192.168.198.128:9090/container/list
+	http.HandleFunc("/container/delete", containersDelete)  //http://192.168.198.128:9090/container/delete?containername=determined_haslett
+	http.HandleFunc("/container/start", containerStart)     //http://192.168.198.128:9090/container/start?containername=determined_haslett
+	http.HandleFunc("/container/stop", containerStop)       //http://192.168.198.128:9090/container/stop?containername=determined_haslett
+	http.HandleFunc("/container/restart", containerRestart) //http://192.168.198.128:9090/container/stop?containername=determined_haslett
+
+	err := http.ListenAndServe(":9090", nil) //设置监听的端口
+	if err != nil {
+		log.Fatal("ListenAndServe: ", err)
+	}
+}
+
+// import (
+// 	"bytes"
+// 	"context"
+// 	"fmt"
+// 	"io/ioutil"
+// 	"net/http"
+// 	"os"
+
+// 	"github.com/docker/docker/api/types"
+// 	"github.com/docker/docker/api/types/container"
+// 	"github.com/docker/docker/client"
+// 	"github.com/docker/docker/pkg/stdcopy"
+// )
+
+// // struct RepoTags{
+
+// // }
+// func postFile() {
+// 	//这是一个Post 参数会被返回的地址
+// 	strinUrl := "http://192.168.3.18:8080/aaa"
+// 	byte, err := ioutil.ReadFile("post.txt")
+// 	resopne, err := http.Post(strinUrl, "multipart/form-data", bytes.NewReader(byte)) //二进制文件
+// 	if err != nil {
+// 		fmt.Println("err=", err)
+// 	}
+// 	defer func() {
+// 		resopne.Body.Close()
+// 		fmt.Println("finish")
+// 	}()
+// 	body, err := ioutil.ReadAll(resopne.Body)
+// 	if err != nil {
+// 		fmt.Println(" post err=", err)
+// 	}
+// 	fmt.Println(string(body))
+// }
+// func importfile() {
+
+// 	file, err := os.Open("/root/test.tar")
+// 	if err != nil {
+// 		fmt.Println("err=", err)
+// 	}
+// 	resp, err := http.Post("http://192.168.3.18:8088/images/load", "application/json", file)
+// 	if err != nil {
+// 		fmt.Println("err=", err)
+// 	}
+// 	defer func() {
+// 		resp.Body.Close()
+// 		fmt.Println("finish")
+// 	}()
+// 	body, err := ioutil.ReadAll(resp.Body)
+// 	if err != nil {
+// 		fmt.Println(" post err=", err)
+// 	}
+// 	fmt.Println(string(body))
+// }
+
+// // TODO: handle errors
+
+// // func main() {
+
+// // 	importfile()
+// // }
+
+// func main() {
+// 	ctx := context.Background()
+// 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	// reader, err := cli.ImagePull(ctx, "docker.io/library/alpine", types.ImagePullOptions{})
+// 	// if err != nil {
+// 	// 	panic(err)
+// 	// }
+// 	// io.Copy(os.Stdout, reader)
+// 	file, err := os.Open("/root/test.tar")
+// 	if err != nil {
+// 		fmt.Println("err=", err)
+// 	}
+// 	imageLoadResponse, err := cli.ImageLoad(ctx, file, true)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	body, err := ioutil.ReadAll(imageLoadResponse.Body)
+// 	if err != nil {
+// 		fmt.Println(" load err=", err)
+// 	}
+// 	fmt.Println(string(body))
+
+// 	resp, err := cli.ContainerCreate(ctx, &container.Config{
+// 		Image: "muchener/testcommitcp:v1", //muchener/testcommitcp:v1
+// 		Cmd:   []string{"echo", "hello world"},
+// 	}, nil, nil, nil, "gddockerapp1")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+// 		panic(err)
+// 	}
+
+// 	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+// 	select {
+// 	case err := <-errCh:
+// 		if err != nil {
+// 			panic(err)
+// 		}
+// 	case <-statusCh:
+// 	}
+
+// 	out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
+// }

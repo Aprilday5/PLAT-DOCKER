@@ -47,8 +47,9 @@ COPY --from=builder /gddockerapp/cmd /gddockerapp/cmd
 COPY --from=builder /gddockerapp/LICENSE /gddockerapp/LICENSE
 COPY --from=builder /gddockerapp/Attribution.txt /gddockerapp/Attribution.txt
 
-EXPOSE 59980
+EXPOSE 9090
 
-# ENTRYPOINT ["/gddockerapp/cmd/gddockerapp"]
+ENTRYPOINT ["/gddockerapp/cmd/gddockerapp"]
+
 # ENTRYPOINT ["/bin/sh"]
 #CMD ["--cp=consul://edgex-core-consul:8500", "--confdir=/res", "--registry"]
