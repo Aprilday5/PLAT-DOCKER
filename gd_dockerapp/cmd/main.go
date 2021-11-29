@@ -18,8 +18,8 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
 )
 
 func version(w http.ResponseWriter, r *http.Request) {
@@ -52,24 +52,33 @@ func version(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
-
 	}
 
-	fmt.Fprintf(w, "Hello Wrold3!") //这个写入到w的是输出到客户端的
+	fmt.Fprintf(w, "version!") //这个写入到w的是输出到客户端的
 }
-func loadImage(w http.ResponseWriter, r *http.Request) {
+func imageUpgrade(w http.ResponseWriter, r *http.Request) {
+	var imageName string
+	var containerName string
+	r.ParseForm()
+	for k, v := range r.Form {
+		fmt.Println("key:", k)
+		fmt.Println("val:", strings.Join(v, ""))
+		if k == "imagename" {
+			imageName = v[0]
+			break
+		}
+	}
+
+	containerName = strings.ReplaceAll(imageName, "/", "-")
+	containerName = strings.ReplaceAll(containerName, ":", "-")
+
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
 	if err != nil {
 		panic(err)
 	}
 
-	// reader, err := cli.ImagePull(ctx, "docker.io/library/alpine", types.ImagePullOptions{})
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// io.Copy(os.Stdout, reader)
-	file, err := os.Open("/root/test.tar")
+	file, err := os.Open("./img/muchener-testcommitcp:v1.tar")
 	if err != nil {
 		fmt.Println("err=", err)
 	}
@@ -84,9 +93,9 @@ func loadImage(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(string(body))
 
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Image: "muchener/testcommitcp:v1", //muchener/testcommitcp:v1
-		Cmd:   []string{"echo", "hello world"},
-	}, nil, nil, nil, "gddockerapp2")
+		Image: imageName,
+		Cmd:   []string{"echo", "hello world2"},
+	}, nil, nil, nil, containerName) //镜像名称作为容器名称
 	if err != nil {
 		panic(err)
 	}
@@ -104,13 +113,138 @@ func loadImage(w http.ResponseWriter, r *http.Request) {
 	case <-statusCh:
 	}
 
-	out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
+	fmt.Fprintf(w, "image upgrade success!") //这个写入到w的是输出到客户端的
+}
+func containerState(w http.ResponseWriter, r *http.Request) {
+
+	var containerName string
+	containerID := "containerid"
+
+	r.ParseForm()
+	for k, v := range r.Form {
+		if k == "containername" {
+			containerName = v[0]
+			break
+		}
+	}
+	//获取容器名对应的容器id
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
 	if err != nil {
 		panic(err)
 	}
 
-	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
+	containerID = getIDbyContainerName(containerName)
+
+	if containerID == "containerid" {
+		fmt.Fprintf(w, "No container named %s\n", containerName)
+	} else {
+		//查看容器状态
+		resp, err := cli.ContainerStats(ctx, containerID, false)
+		if err != nil {
+			panic(err)
+		}
+		defer resp.Body.Close()
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Fprintf(w, "%s", content) //[/muchener-testcommitcp-v1] cffd3b0a35042f16eed861faaa671d0fbdfb53918f5c06e004668f13b2c69b34 muchener-testcommitcp-v1
+		fmt.Fprintf(w, "image containerState success!")
+	}
+}
+func getIDbyImageName(imagename string) string {
+	imageID := "imageid"
+
+	//获取容器名对应的容器id
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	if err != nil {
+		panic(err)
+	}
+
+	filters := filters.NewArgs()
+	//filters.Add("label", "muchener/testcommitcp")
+	// filters.Add("dangling", "true")
+	options := types.ImageListOptions{
+		Filters: filters,
+	}
+
+	images, err := cli.ImageList(ctx, options)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(len(images))
+	// if len(images) != 2 {
+	// 	panic("expected 2 images, got %v", images)
+	// }
+
+	for _, image := range images {
+		fmt.Println(image.Containers, image.ID, image.RepoTags, imagename)
+		if image.RepoTags[0] == imagename {
+			imageID = image.ID
+			break
+		}
+	}
+	return imageID
+}
+func loadImage(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	if err != nil {
+		panic(err)
+	}
+
+	// reader, err := cli.ImagePull(ctx, "docker.io/library/alpine", types.ImagePullOptions{})
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// io.Copy(os.Stdout, reader)
+	file, err := os.Open("./img/muchener-testcommitcp:v1.tar")
+	if err != nil {
+		fmt.Println("err=", err)
+	}
+	imageLoadResponse, err := cli.ImageLoad(ctx, file, true)
+	if err != nil {
+		panic(err)
+	}
+	body, err := ioutil.ReadAll(imageLoadResponse.Body)
+	if err != nil {
+		fmt.Println(" load err=", err)
+	}
+	fmt.Println(string(body))
 	fmt.Fprintf(w, "image load success!") //这个写入到w的是输出到客户端的
+}
+func removeImage(w http.ResponseWriter, r *http.Request) {
+	var imageID string
+	var imageName string
+	r.ParseForm()
+	for k, v := range r.Form {
+		fmt.Println("key:", k)
+		fmt.Println("val:", strings.Join(v, ""))
+		if k == "imagename" {
+			imageName = v[0]
+			break
+		}
+	}
+
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	if err != nil {
+		panic(err)
+	}
+	imageID = getIDbyImageName(imageName)
+	imageDeletes, err := cli.ImageRemove(ctx, imageID, types.ImageRemoveOptions{
+		Force:         true,
+		PruneChildren: false,
+	})
+	if err != nil {
+		panic(err)
+	}
+	if len(imageDeletes) != 2 { //todo
+		fmt.Printf("expected 2 deleted images, got %v", imageDeletes)
+	}
+	fmt.Fprintf(w, "image remove success!") //这个写入到w的是输出到客户端的
 }
 
 func containersList(w http.ResponseWriter, r *http.Request) {
@@ -294,8 +428,12 @@ func containerRestart(w http.ResponseWriter, r *http.Request) {
 }
 func main() {
 
-	http.HandleFunc("/images/version", version) //设置访问的路由
-	http.HandleFunc("/images/load", loadImage)  //
+	http.HandleFunc("/images/version", version)      //设置访问的路由
+	http.HandleFunc("/images/upgrade", imageUpgrade) //load-create-start:http://192.168.198.128:9090/images/upgrade
+	http.HandleFunc("/images/state", containerState)
+
+	http.HandleFunc("/images/delete", removeImage) //http://192.168.198.128:9090/images/delete
+	http.HandleFunc("/images/load", loadImage)     //http://192.168.198.128:9090/images/load
 
 	http.HandleFunc("/container/list", containersList)      //http://192.168.198.128:9090/container/list
 	http.HandleFunc("/container/delete", containersDelete)  //http://192.168.198.128:9090/container/delete?containername=determined_haslett
