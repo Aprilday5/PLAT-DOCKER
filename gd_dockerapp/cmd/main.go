@@ -22,6 +22,11 @@ import (
 	"github.com/docker/docker/client"
 )
 
+const (
+	ATLAS_HOST     = "http://192.168.2.2:8088"
+	ATLAS_IMG_PATH = "/gddockerapp/cmd/muchener-testcommitcp-v1.tar"
+)
+
 func version(w http.ResponseWriter, r *http.Request) {
 
 	// r.ParseForm()       //解析参数，默认是不会解析的
@@ -34,7 +39,7 @@ func version(w http.ResponseWriter, r *http.Request) {
 	// 	fmt.Println("val:", strings.Join(v, ""))
 	// }
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
 	if err != nil {
 		panic(err)
 	}
@@ -73,12 +78,12 @@ func imageUpgrade(w http.ResponseWriter, r *http.Request) {
 	containerName = strings.ReplaceAll(containerName, ":", "-")
 
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
 	if err != nil {
 		panic(err)
 	}
 
-	file, err := os.Open("./img/muchener-testcommitcp:v1.tar")
+	file, err := os.Open(ATLAS_IMG_PATH)
 	if err != nil {
 		fmt.Println("err=", err)
 	}
@@ -129,7 +134,7 @@ func containerState(w http.ResponseWriter, r *http.Request) {
 	}
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
 	if err != nil {
 		panic(err)
 	}
@@ -158,7 +163,7 @@ func getIDbyImageName(imagename string) string {
 
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
 	if err != nil {
 		panic(err)
 	}
@@ -190,7 +195,7 @@ func getIDbyImageName(imagename string) string {
 }
 func loadImage(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
 	if err != nil {
 		panic(err)
 	}
@@ -200,7 +205,7 @@ func loadImage(w http.ResponseWriter, r *http.Request) {
 	// 	panic(err)
 	// }
 	// io.Copy(os.Stdout, reader)
-	file, err := os.Open("./img/muchener-testcommitcp:v1.tar")
+	file, err := os.Open(ATLAS_IMG_PATH)
 	if err != nil {
 		fmt.Println("err=", err)
 	}
@@ -229,7 +234,7 @@ func removeImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
 	if err != nil {
 		panic(err)
 	}
@@ -250,7 +255,7 @@ func removeImage(w http.ResponseWriter, r *http.Request) {
 func containersList(w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
 	if err != nil {
 		panic(err)
 	}
@@ -272,7 +277,7 @@ func getIDbyContainerName(containername string) string {
 	containerID := "containerid"
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
 	if err != nil {
 		panic(err)
 	}
@@ -308,7 +313,7 @@ func containersDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
 	if err != nil {
 		panic(err)
 	}
@@ -344,7 +349,7 @@ func containerStart(w http.ResponseWriter, r *http.Request) {
 	}
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
 	if err != nil {
 		panic(err)
 	}
@@ -376,7 +381,7 @@ func containerStop(w http.ResponseWriter, r *http.Request) {
 	}
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
 	if err != nil {
 		panic(err)
 	}
@@ -409,7 +414,7 @@ func containerRestart(w http.ResponseWriter, r *http.Request) {
 	}
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
 	if err != nil {
 		panic(err)
 	}
