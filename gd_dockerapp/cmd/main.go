@@ -7,10 +7,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -23,11 +24,19 @@ import (
 )
 
 const (
-	ATLAS_HOST     = "http://192.168.2.2:8088"
-	ATLAS_IMG_PATH = "/gddockerapp/cmd/muchener-testcommitcp-v1.tar"
+	// ATLAS_HOST     = "http://192.168.3.18:8088"
+	// ATLAS_IMG_PATH = "/gddockerapp/cmd/muchener-testcommitcp-v1.tar"
+	// ATLAS_IMG_NAME = "muchener/testcommitcp"
+
+	//CONF_FILE_PATH = "/gddockerapp/cmd/res/gddocker.conf"
+	CONF_FILE_PATH = "/mnt/hgfs/comgitlab/dabaobao/PLAT-DOCKER/gd_dockerapp/cmd/res/gddocker.conf"
+	HOST           = "host"
+	PORT           = "port"
+	IMAGEDIR       = "imagedir"
+	IMAGENAME      = "imagename"
 )
 
-func version(w http.ResponseWriter, r *http.Request) {
+func (gd *GdDocker) version(w http.ResponseWriter, r *http.Request) {
 
 	// r.ParseForm()       //解析参数，默认是不会解析的
 	// fmt.Println(r.Form) //这些信息是输出到服务器端的打印信息
@@ -39,7 +48,7 @@ func version(w http.ResponseWriter, r *http.Request) {
 	// 	fmt.Println("val:", strings.Join(v, ""))
 	// }
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
 	if err != nil {
 		panic(err)
 	}
@@ -51,7 +60,7 @@ func version(w http.ResponseWriter, r *http.Request) {
 	for _, image := range images {
 		fmt.Println(image.RepoTags[0])
 		for _, tag := range image.RepoTags {
-			if strings.Contains(tag, "muchener/testcommitcp") { //版本不同
+			if strings.Contains(tag, gd.AtlasImageName) { //版本不同
 				// if tag == "muchener/testcommitcp:v1" {
 				fmt.Fprintf(w, tag)
 				break
@@ -61,7 +70,7 @@ func version(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintf(w, "version!") //这个写入到w的是输出到客户端的
 }
-func imageUpgrade(w http.ResponseWriter, r *http.Request) {
+func (gd *GdDocker) imageUpgrade(w http.ResponseWriter, r *http.Request) {
 	var imageName string
 	var containerName string
 	r.ParseForm()
@@ -78,12 +87,12 @@ func imageUpgrade(w http.ResponseWriter, r *http.Request) {
 	containerName = strings.ReplaceAll(containerName, ":", "-")
 
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
 	if err != nil {
 		panic(err)
 	}
 
-	file, err := os.Open(ATLAS_IMG_PATH)
+	file, err := os.Open(gd.AtlasImageFullName)
 	if err != nil {
 		fmt.Println("err=", err)
 	}
@@ -120,7 +129,7 @@ func imageUpgrade(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintf(w, "image upgrade success!") //这个写入到w的是输出到客户端的
 }
-func containerState(w http.ResponseWriter, r *http.Request) {
+func (gd *GdDocker) containerState(w http.ResponseWriter, r *http.Request) {
 
 	var containerName string
 	containerID := "containerid"
@@ -134,12 +143,12 @@ func containerState(w http.ResponseWriter, r *http.Request) {
 	}
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
 	if err != nil {
 		panic(err)
 	}
 
-	containerID = getIDbyContainerName(containerName)
+	containerID = gd.getIDbyContainerName(containerName)
 
 	if containerID == "containerid" {
 		fmt.Fprintf(w, "No container named %s\n", containerName)
@@ -158,12 +167,12 @@ func containerState(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "image containerState success!")
 	}
 }
-func getIDbyImageName(imagename string) string {
+func (gd *GdDocker) getIDbyImageName(imagename string) string {
 	imageID := "imageid"
 
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
 	if err != nil {
 		panic(err)
 	}
@@ -193,9 +202,9 @@ func getIDbyImageName(imagename string) string {
 	}
 	return imageID
 }
-func loadImage(w http.ResponseWriter, r *http.Request) {
+func (gd *GdDocker) loadImage(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
 	if err != nil {
 		panic(err)
 	}
@@ -205,7 +214,7 @@ func loadImage(w http.ResponseWriter, r *http.Request) {
 	// 	panic(err)
 	// }
 	// io.Copy(os.Stdout, reader)
-	file, err := os.Open(ATLAS_IMG_PATH)
+	file, err := os.Open(gd.AtlasImageFullName)
 	if err != nil {
 		fmt.Println("err=", err)
 	}
@@ -220,7 +229,7 @@ func loadImage(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(string(body))
 	fmt.Fprintf(w, "image load success!") //这个写入到w的是输出到客户端的
 }
-func removeImage(w http.ResponseWriter, r *http.Request) {
+func (gd *GdDocker) removeImage(w http.ResponseWriter, r *http.Request) {
 	var imageID string
 	var imageName string
 	r.ParseForm()
@@ -234,11 +243,11 @@ func removeImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
 	if err != nil {
 		panic(err)
 	}
-	imageID = getIDbyImageName(imageName)
+	imageID = gd.getIDbyImageName(imageName)
 	imageDeletes, err := cli.ImageRemove(ctx, imageID, types.ImageRemoveOptions{
 		Force:         true,
 		PruneChildren: false,
@@ -252,10 +261,10 @@ func removeImage(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "image remove success!") //这个写入到w的是输出到客户端的
 }
 
-func containersList(w http.ResponseWriter, r *http.Request) {
+func (gd *GdDocker) containersList(w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
 	if err != nil {
 		panic(err)
 	}
@@ -273,11 +282,11 @@ func containersList(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Fprintf(w, "containersList\n")
 }
-func getIDbyContainerName(containername string) string {
+func (gd *GdDocker) getIDbyContainerName(containername string) string {
 	containerID := "containerid"
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
 	if err != nil {
 		panic(err)
 	}
@@ -298,7 +307,7 @@ func getIDbyContainerName(containername string) string {
 	}
 	return containerID
 }
-func containersDelete(w http.ResponseWriter, r *http.Request) {
+func (gd *GdDocker) containersDelete(w http.ResponseWriter, r *http.Request) {
 	var containerName string
 	containerID := "containerid"
 
@@ -313,12 +322,12 @@ func containersDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
 	if err != nil {
 		panic(err)
 	}
 
-	containerID = getIDbyContainerName(containerName)
+	containerID = gd.getIDbyContainerName(containerName)
 	if containerID == "containerid" {
 		fmt.Fprintf(w, "No container named %s\n", containerName)
 	} else {
@@ -333,7 +342,7 @@ func containersDelete(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "containers %s Delete success!\n", containerName)
 	}
 }
-func containerStart(w http.ResponseWriter, r *http.Request) {
+func (gd *GdDocker) containerStart(w http.ResponseWriter, r *http.Request) {
 	var containerName string
 	containerID := "containerid"
 
@@ -349,11 +358,11 @@ func containerStart(w http.ResponseWriter, r *http.Request) {
 	}
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
 	if err != nil {
 		panic(err)
 	}
-	containerID = getIDbyContainerName(containerName)
+	containerID = gd.getIDbyContainerName(containerName)
 	if containerID == "containerid" {
 		fmt.Fprintf(w, "No container named %s\n", containerName)
 	} else {
@@ -365,7 +374,7 @@ func containerStart(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "containers %s start success!\n", containerName)
 	}
 }
-func containerStop(w http.ResponseWriter, r *http.Request) {
+func (gd *GdDocker) containerStop(w http.ResponseWriter, r *http.Request) {
 	var containerName string
 	containerID := "containerid"
 
@@ -381,11 +390,11 @@ func containerStop(w http.ResponseWriter, r *http.Request) {
 	}
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
 	if err != nil {
 		panic(err)
 	}
-	containerID = getIDbyContainerName(containerName)
+	containerID = gd.getIDbyContainerName(containerName)
 	if containerID == "containerid" {
 		fmt.Fprintf(w, "No container named %s\n", containerName)
 	} else {
@@ -398,7 +407,7 @@ func containerStop(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "containers %s stop success!\n", containerName)
 	}
 }
-func containerRestart(w http.ResponseWriter, r *http.Request) {
+func (gd *GdDocker) containerRestart(w http.ResponseWriter, r *http.Request) {
 	var containerName string
 	containerID := "containerid"
 
@@ -414,11 +423,11 @@ func containerRestart(w http.ResponseWriter, r *http.Request) {
 	}
 	//获取容器名对应的容器id
 	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(ATLAS_HOST))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
 	if err != nil {
 		panic(err)
 	}
-	containerID = getIDbyContainerName(containerName)
+	containerID = gd.getIDbyContainerName(containerName)
 	if containerID == "containerid" {
 		fmt.Fprintf(w, "No container named %s\n", containerName)
 	} else {
@@ -431,141 +440,158 @@ func containerRestart(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "containers %s restart success!\n", containerName)
 	}
 }
-func main() {
 
-	http.HandleFunc("/images/version", version)      //设置访问的路由
-	http.HandleFunc("/images/upgrade", imageUpgrade) //load-create-start:http://192.168.198.128:9090/images/upgrade
-	http.HandleFunc("/images/state", containerState)
-
-	http.HandleFunc("/images/delete", removeImage) //http://192.168.198.128:9090/images/delete
-	http.HandleFunc("/images/load", loadImage)     //http://192.168.198.128:9090/images/load
-
-	http.HandleFunc("/container/list", containersList)      //http://192.168.198.128:9090/container/list
-	http.HandleFunc("/container/delete", containersDelete)  //http://192.168.198.128:9090/container/delete?containername=determined_haslett
-	http.HandleFunc("/container/start", containerStart)     //http://192.168.198.128:9090/container/start?containername=determined_haslett
-	http.HandleFunc("/container/stop", containerStop)       //http://192.168.198.128:9090/container/stop?containername=determined_haslett
-	http.HandleFunc("/container/restart", containerRestart) //http://192.168.198.128:9090/container/stop?containername=determined_haslett
-
-	err := http.ListenAndServe(":9090", nil) //设置监听的端口
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
-	}
+type GdDocker struct {
+	AtlasAddress       string
+	AtlasImageDir      string
+	AtlasImageFullName string
+	AtlasImageName     string
 }
 
-// import (
-// 	"bytes"
-// 	"context"
-// 	"fmt"
-// 	"io/ioutil"
-// 	"net/http"
-// 	"os"
+//读取key=value类型的配置文件
+func (gd *GdDocker) InitConfig(path string) {
+	config := make(map[string]string)
 
-// 	"github.com/docker/docker/api/types"
-// 	"github.com/docker/docker/api/types/container"
-// 	"github.com/docker/docker/client"
-// 	"github.com/docker/docker/pkg/stdcopy"
-// )
+	f, err := os.Open(path)
+	defer f.Close()
+	if err != nil {
+		panic(err)
+	}
 
-// // struct RepoTags{
+	r := bufio.NewReader(f)
+	for {
+		b, _, err := r.ReadLine()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			panic(err)
+		}
+		s := strings.TrimSpace(string(b))
+		index := strings.Index(s, "=")
+		if index < 0 {
+			continue
+		}
+		key := strings.TrimSpace(s[:index])
+		if len(key) == 0 {
+			continue
+		}
+		value := strings.TrimSpace(s[index+1:])
+		if len(value) == 0 {
+			continue
+		}
+		config[key] = value
+	}
+	gd.AtlasAddress = "http://" + config[HOST] + ":" + config[PORT]
+	gd.AtlasImageDir = config[IMAGEDIR]
+	gd.AtlasImageName = config[IMAGENAME]
+	fmt.Println(gd)
+}
+func (gd *GdDocker) init() {
+	//读取并获取镜像名称
+	//解析文件
+	gd.InitConfig(CONF_FILE_PATH)
 
-// // }
-// func postFile() {
-// 	//这是一个Post 参数会被返回的地址
-// 	strinUrl := "http://192.168.3.18:8080/aaa"
-// 	byte, err := ioutil.ReadFile("post.txt")
-// 	resopne, err := http.Post(strinUrl, "multipart/form-data", bytes.NewReader(byte)) //二进制文件
-// 	if err != nil {
-// 		fmt.Println("err=", err)
-// 	}
-// 	defer func() {
-// 		resopne.Body.Close()
-// 		fmt.Println("finish")
-// 	}()
-// 	body, err := ioutil.ReadAll(resopne.Body)
-// 	if err != nil {
-// 		fmt.Println(" post err=", err)
-// 	}
-// 	fmt.Println(string(body))
-// }
-// func importfile() {
+	//使用文件
+	files, _ := ioutil.ReadDir(gd.AtlasImageDir)
+	for _, f := range files {
+		if strings.Contains(f.Name(), ".tar") {
+			gd.AtlasImageFullName = gd.AtlasImageDir + f.Name()
+			fmt.Println(gd.AtlasImageFullName)
+		}
+	}
+}
+func (gd *GdDocker) updateornot() bool {
 
-// 	file, err := os.Open("/root/test.tar")
-// 	if err != nil {
-// 		fmt.Println("err=", err)
-// 	}
-// 	resp, err := http.Post("http://192.168.3.18:8088/images/load", "application/json", file)
-// 	if err != nil {
-// 		fmt.Println("err=", err)
-// 	}
-// 	defer func() {
-// 		resp.Body.Close()
-// 		fmt.Println("finish")
-// 	}()
-// 	body, err := ioutil.ReadAll(resp.Body)
-// 	if err != nil {
-// 		fmt.Println(" post err=", err)
-// 	}
-// 	fmt.Println(string(body))
-// }
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
+	if err != nil {
+		panic(err)
+	}
 
-// // TODO: handle errors
+	filters := filters.NewArgs()
+	//filters.Add("label", "muchener/testcommitcp")
+	// filters.Add("dangling", "true")
+	options := types.ImageListOptions{
+		Filters: filters,
+	}
 
-// // func main() {
+	images, err := cli.ImageList(ctx, options)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(len(images))
+	// if len(images) != 2 {
+	// 	panic("expected 2 images, got %v", images)
+	// }
 
-// // 	importfile()
-// // }
+	for _, image := range images {
+		fmt.Println(image.Containers, image.ID, image.RepoTags, gd.AtlasImageName)
+		if image.RepoTags[0] == gd.AtlasImageName {
+			return false
+		}
+	}
+	return true
+}
+func (gd *GdDocker) imgUpdate() error {
 
-// func main() {
-// 	ctx := context.Background()
-// 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost("http://192.168.3.18:8088"))
-// 	if err != nil {
-// 		panic(err)
-// 	}
+	var containerName string
 
-// 	// reader, err := cli.ImagePull(ctx, "docker.io/library/alpine", types.ImagePullOptions{})
-// 	// if err != nil {
-// 	// 	panic(err)
-// 	// }
-// 	// io.Copy(os.Stdout, reader)
-// 	file, err := os.Open("/root/test.tar")
-// 	if err != nil {
-// 		fmt.Println("err=", err)
-// 	}
-// 	imageLoadResponse, err := cli.ImageLoad(ctx, file, true)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	body, err := ioutil.ReadAll(imageLoadResponse.Body)
-// 	if err != nil {
-// 		fmt.Println(" load err=", err)
-// 	}
-// 	fmt.Println(string(body))
+	containerName = strings.ReplaceAll(gd.AtlasImageName, "/", "-")
+	containerName = strings.ReplaceAll(containerName, ":", "-")
 
-// 	resp, err := cli.ContainerCreate(ctx, &container.Config{
-// 		Image: "muchener/testcommitcp:v1", //muchener/testcommitcp:v1
-// 		Cmd:   []string{"echo", "hello world"},
-// 	}, nil, nil, nil, "gddockerapp1")
-// 	if err != nil {
-// 		panic(err)
-// 	}
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
+	if err != nil {
+		panic(err)
+	}
+	//获取镜像版本，判断是否需要升级
+	if gd.updateornot() {
+		file, err := os.Open(gd.AtlasImageFullName)
+		if err != nil {
+			fmt.Println("err=", err)
+		}
+		imageLoadResponse, err := cli.ImageLoad(ctx, file, true)
+		if err != nil {
+			panic(err)
+		}
+		body, err := ioutil.ReadAll(imageLoadResponse.Body)
+		if err != nil {
+			fmt.Println(" load err=", err)
+		}
+		fmt.Println(string(body))
 
-// 	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-// 		panic(err)
-// 	}
+		resp, err := cli.ContainerCreate(ctx, &container.Config{
+			Image: gd.AtlasImageName,
+			Cmd:   []string{"echo", "hello world2"},
+		}, nil, nil, nil, containerName) //镜像名称作为容器名称
+		if err != nil {
+			panic(err)
+		}
 
-// 	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-// 	select {
-// 	case err := <-errCh:
-// 		if err != nil {
-// 			panic(err)
-// 		}
-// 	case <-statusCh:
-// 	}
+		if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+			panic(err)
+		}
 
-// 	out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
-// 	if err != nil {
-// 		panic(err)
-// 	}
+		statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+		select {
+		case err := <-errCh:
+			if err != nil {
+				panic(err)
+			}
+		case <-statusCh:
+		}
+	} else {
+		fmt.Println("Current version is updated!")
+	}
 
-// 	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
-// }
+	return err
+}
+
+func main() {
+	gd := new(GdDocker)
+	gd.init()
+	gd.imgUpdate()
+	for {
+	}
+}
