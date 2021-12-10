@@ -9,9 +9,11 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -21,6 +23,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
 const (
@@ -29,7 +32,7 @@ const (
 	// ATLAS_IMG_NAME = "muchener/testcommitcp"
 
 	//CONF_FILE_PATH = "/gddockerapp/cmd/res/gddocker.conf"
-	CONF_FILE_PATH = "/mnt/hgfs/comgitlab/dabaobao/PLAT-DOCKER/gd_dockerapp/cmd/res/gddocker.conf"
+	CONF_FILE_PATH = "/gddockerapp/cmd/res/gddocker.conf"
 	HOST           = "host"
 	PORT           = "port"
 	IMAGEDIR       = "imagedir"
@@ -62,7 +65,7 @@ func (gd *GdDocker) version(w http.ResponseWriter, r *http.Request) {
 		for _, tag := range image.RepoTags {
 			if strings.Contains(tag, gd.AtlasImageName) { //版本不同
 				// if tag == "muchener/testcommitcp:v1" {
-				fmt.Fprintf(w, tag)
+				fmt.Println(w, tag)
 				break
 			}
 		}
@@ -108,7 +111,7 @@ func (gd *GdDocker) imageUpgrade(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Image: imageName,
-		Cmd:   []string{"echo", "hello world2"},
+		// Cmd:   []string{"echo", "hello world2"},
 	}, nil, nil, nil, containerName) //镜像名称作为容器名称
 	if err != nil {
 		panic(err)
@@ -563,7 +566,7 @@ func (gd *GdDocker) imgUpdate() error {
 
 		resp, err := cli.ContainerCreate(ctx, &container.Config{
 			Image: gd.AtlasImageName,
-			Cmd:   []string{"echo", "hello world2"},
+			//Cmd:   []string{"echo", "hello world2"},
 		}, nil, nil, nil, containerName) //镜像名称作为容器名称
 		if err != nil {
 			panic(err)
@@ -588,10 +591,143 @@ func (gd *GdDocker) imgUpdate() error {
 	return err
 }
 
+const (
+	SERVICE_DATA  = "/v1/appName/service/data"
+	SERVICE_CMD   = "/v1/appName/service/command"
+	SERVICE_REPLY = "/v1/appName/service/reply"
+)
+
+var waitchan = make(chan bool)
+
+type ServiceDataParam struct {
+	Cmd      string `json:"cmd"`
+	DeviceId string `json:"deviceId"`
+	Data     string `json:"data"` //todo,数据以物模型规范的数据格式上报json
+}
+type ServiceData struct {
+	Type      string           `json:"type,omitempty"`
+	Mid       int64            `json:"mid,omitempty"`
+	DeviceId  string           `json:"deviceId,omitempty"`
+	Timestamp int64            `json:"timestamp,omitempty"`
+	Expire    int              `json:"expire,omitempty"`
+	Param     ServiceDataParam `json:"param,omitempty"`
+}
+
+type ServiceCMDParam struct {
+	Cmd   string `json:"cmd,omitempty"`
+	Paras string `json:"paras,omitempty"` //todo,数据以物模型规范的数据格式上报json
+}
+type ServiceCMD struct {
+	Type      string          `json:"type,omitempty"`
+	Mid       int64           `json:"mid,omitempty"`
+	DeviceId  string          `json:"deviceId,omitempty"`
+	Timestamp int64           `json:"timestamp,omitempty"`
+	Expire    int             `json:"expire,omitempty"`
+	Param     ServiceCMDParam `json:"param,omitempty"`
+}
+
+type ServiceRelyParam struct {
+	Cmd   string `json:"cmd,omitempty"`
+	Paras string `json:"paras,omitempty"` //todo,数据以物模型规范的数据格式上报json
+}
+type ServiceRely struct {
+	Type      string           `json:"type,omitempty"`
+	Mid       int64            `json:"mid,omitempty"`
+	DeviceId  string           `json:"deviceId,omitempty"`
+	Timestamp int64            `json:"timestamp,omitempty"`
+	Code      int              `json:"code,omitempty"`
+	Msg       string           `json:"msg,omitempty"`
+	Param     ServiceRelyParam `json:"param,omitempty"`
+}
+
+//define a function for the default message handler
+var ServiceDataHandler MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
+	fmt.Printf("TOPIC: %s\n", msg.Topic())
+	fmt.Printf("MSG: %s\n", msg.Payload())
+}
+
+var ServiceCMDHandler MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
+	fmt.Printf("TOPICcmd: %s\n", msg.Topic())
+	fmt.Printf("MSGcmd: %s\n", msg.Payload())
+
+	var servicecmd ServiceCMD
+	var servicereply ServiceRely
+	retcode := 400
+	//解析cmd，组reply并发布
+	err := json.Unmarshal(msg.Payload(), &servicecmd)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(servicecmd)
+
+	servicereply.Mid = servicecmd.Mid
+	servicereply.Timestamp = time.Now().Unix()
+	servicereply.Type = servicecmd.Type
+	servicereply.DeviceId = servicecmd.DeviceId
+	servicereply.Code = retcode
+	servicereply.Msg = "SUCCESS"
+	servicereply.Param.Cmd = servicecmd.Param.Cmd
+	servicereply.Param.Paras = servicecmd.Param.Paras
+	data0, err := json.Marshal(servicereply)
+	if err != nil {
+		fmt.Println(err)
+	}
+	token := client.Publish(SERVICE_REPLY, 0, false, data0)
+	token.Wait()
+
+}
+var ServiceReplyHandler MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
+	fmt.Printf("TOPICreply: %s\n", msg.Topic())
+	fmt.Printf("MSGreply: %s\n", msg.Payload())
+}
+
 func main() {
 	gd := new(GdDocker)
 	gd.init()
 	gd.imgUpdate()
-	for {
+
+	//create a ClientOptions struct setting the broker address, clientid, turn
+	//off trace output and set the default message handler
+	opts := MQTT.NewClientOptions().AddBroker("tcp://192.168.3.33:1883")
+	opts.SetClientID("gddockerapp")
+	opts.SetDefaultPublishHandler(ServiceDataHandler)
+
+	//create and start a client using the above ClientOptions
+	c := MQTT.NewClient(opts)
+	if token := c.Connect(); token.Wait() && token.Error() != nil {
+		panic(token.Error())
 	}
+	//subscribe to the topic /go-mqtt/sample and request messages to be delivered
+	//at a maximum qos of zero, wait for the receipt to confirm the subscription
+	if token := c.Subscribe(SERVICE_CMD, 0, ServiceCMDHandler); token.Wait() && token.Error() != nil {
+		fmt.Println(token.Error())
+		os.Exit(1)
+	}
+	//Publish 5 messages to /go-mqtt/sample at qos 1 and wait for the receipt
+	//from the server after sending each message
+
+	go func() {
+		ticker := time.NewTicker(time.Second * 2)
+		for range ticker.C {
+			//更新data内容
+			servicedata := new(ServiceData)
+			servicedata.Type = "CMD_REPORTDATA"
+			servicedata.Mid = rand.Int63()
+			servicedata.DeviceId = "001"
+			servicedata.Timestamp = time.Now().Unix()
+			servicedata.Param.Cmd = "data" //?
+			servicedata.Param.DeviceId = servicedata.DeviceId
+			servicedata.Param.Data = "datasample"
+			data0, err := json.Marshal(servicedata)
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			token := c.Publish(SERVICE_DATA, 0, false, data0)
+			token.Wait()
+		}
+	}()
+	time.Sleep(3 * time.Second)
+	<-waitchan
+
 }

@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-ARG BASE=golang:1.16-alpine3.12
+ARG BASE=golang:1.15-alpine3.12
 FROM ${BASE} AS builder
-ARG ALPINE_PKG_BASE="make git openssh-client gcc libc-dev zeromq-dev libsodium-dev"
+ARG ALPINE_PKG_BASE="make git"
 ARG ALPINE_PKG_EXTRA=""
 
 # Replicate the APK repository override.
