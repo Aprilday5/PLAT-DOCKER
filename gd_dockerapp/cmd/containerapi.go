@@ -11,19 +11,19 @@ import (
 
 //topics:1.升级容器 2.安装容器 3.启停，删除容器 4.配置容器 5.容器状态查询 6.容器状态上报
 const (
-	CMD_CON_INSTALL    = "CMD_CON_INSTALL"
-	CMD_STATUS_QUERY   = "CMD_STATUS_QUERY" //安装和升级状态查看
-	CMD_CON_START      = "CMD_CON_START"
-	CMD_CON_STOP       = "CMD_CON_STOP"
-	CMD_CON_REMOVE     = "CMD_CON_REMOVE"
-	CMD_CON_SET_CONFIG = "CMD_CON_SET_CONFIG"
-	CMD_CON_GET_CONFIG = "CMD_CON_GET_CONFIG"
-	CMD_CON_STATUS     = "CMD_CON_STATUS"
-	REP_CON_STATUS     = "REP_CON_STATUS"  //data主题
-	EVENT_CON_ALARM    = "EVENT_CON_ALARM" //data主题
-	CMD_CON_UPGRADE    = "CMD_CON_UPGRADE"
-	REP_JOB_RESULT     = "REP_JOB_RESULT" //安装和升级结果上报，data主题
-	CMD_CON_LOG        = "CMD_CON_LOG"
+	CMD_CON_INSTALL = "CMD_CON_INSTALL"
+	// CMD_STATUS_QUERY = "CMD_STATUS_QUERY" //安装和升级状态查看
+	CMD_CON_START  = "CMD_CON_START"
+	CMD_CON_STOP   = "CMD_CON_STOP"
+	CMD_CON_REMOVE = "CMD_CON_REMOVE"
+	// CMD_CON_SET_CONFIG = "CMD_CON_SET_CONFIG"
+	// CMD_CON_GET_CONFIG = "CMD_CON_GET_CONFIG"
+	CMD_CON_STATUS = "CMD_CON_STATUS"
+	REP_CON_STATUS = "REP_CON_STATUS" //data主题
+	// EVENT_CON_ALARM    = "EVENT_CON_ALARM" //data主题
+	// CMD_CON_UPGRADE    = "CMD_CON_UPGRADE"
+	// REP_JOB_RESULT     = "REP_JOB_RESULT" //安装和升级结果上报，data主题
+	// CMD_CON_LOG        = "CMD_CON_LOG"
 )
 const (
 	EDGE_CMD   = "/v1/appName/service/command"
@@ -103,16 +103,16 @@ type ConInstallReply struct {
 //status
 type ConStatusReply struct {
 	Container string `json:"container,omitempty"`
-	Version   string `json:"version,omitempty"`
-	State     string `json:"state,omitempty"`
-	CpuRate   int    `json:"cpu_rate,omitempty"`
-	Memory    int    `json:"memory,omitempty"`
-	Disk      int    `json:"disk,omitempty"`
-	Ip        string `json:"ip,omitempty"`
-	Created   string `json:"created,omitempty"`
-	Started   string `json:"started,omitempty"`
-	LifeTime  int64  `json:"life_time,omitempty"`
-	Image     string `json:"image,omitempty"`
+	// Version   string `json:"version,omitempty"`
+	State    string `json:"state,omitempty"`
+	CpuRate  int    `json:"cpu_rate"`
+	Memory   int    `json:"memory"`
+	Disk     int    `json:"disk"`
+	Ip       string `json:"ip,omitempty"`
+	Created  string `json:"created,omitempty"`
+	Started  string `json:"started,omitempty"`
+	LifeTime int64  `json:"life_time,omitempty"`
+	Image    string `json:"image,omitempty"`
 }
 
 //upgrade
@@ -138,6 +138,38 @@ type CfgMem_struct struct {
 type CfgDisk_struct struct {
 	Disk    int `json:"disk,omitempty"`
 	DiskLmt int `json:"disk_lmt,omitempty"`
+}
+
+//stats
+type CPUTHIRDLEVEL struct {
+}
+type CPU_USAGE struct {
+	Total_usage int64 `json:"total_usage,omitempty"`
+}
+type CPU_STATS struct {
+	Cpu_usage        CPU_USAGE `json:"cpu_usage,omitempty"`
+	Online_cpus      int64     `json:"online_cpus,omitempty"`
+	System_cpu_usage int64     `json:"system_cpu_usage,omitempty"`
+}
+type PRECPU_STATS struct {
+	Cpu_usage        CPU_USAGE `json:"cpu_usage,omitempty"`
+	System_cpu_usage int64     `json:"system_cpu_usage,omitempty"`
+}
+
+//mem
+type MEMTHIRDLEVEL struct {
+	Cache int64 `json:"cache,omitempty"`
+}
+type MEMEROY_STATS struct {
+	Usage int64         `json:"usage,omitempty"`
+	Limit int64         `json:"limit,omitempty"`
+	Stats MEMTHIRDLEVEL `json:"stats,omitempty"`
+}
+type STATUSREPLY struct {
+	Read         string        `json:"read,omitempty"`
+	Cpu_stats    CPU_STATS     `json:"cpu_stats,omitempty"`
+	Precpu_stats PRECPU_STATS  `json:"precpu_stats,omitempty"`
+	Memory_stats MEMEROY_STATS `json:"memory_stats,omitempty"`
 }
 
 //define a function for the default message handler
@@ -219,12 +251,6 @@ func (ca *ContainerAPI) FUNC_CMD_CON_REMOVE(servicecmd *ServiceCMD) *ServiceRepl
 	return servicereply
 }
 
-func (ca *ContainerAPI) FUNC_CMD_CON_SET_CONFIG() {
-
-}
-func (ca *ContainerAPI) FUNC_CMD_CON_GET_CONFIG() {
-
-}
 func (ca *ContainerAPI) FUNC_CMD_CON_STATUS(servicecmd *ServiceCMD) *ServiceReply {
 	var servicereply = new(ServiceReply)
 	var coninstallcmd = new(ConInstallCmd)
@@ -240,9 +266,15 @@ func (ca *ContainerAPI) FUNC_CMD_CON_STATUS(servicecmd *ServiceCMD) *ServiceRepl
 
 	return servicereply
 }
-func (ca *ContainerAPI) FUNC_CMD_CON_UPGRADE() {
+func (ca *ContainerAPI) FUNC_REP_CON_STATUS() *ServiceReply {
 
-}
-func (ca *ContainerAPI) FUNC_CMD_CON_LOG() {
+	var servicereply = new(ServiceReply)
 
+	servicereply.Mid = 12345678
+	servicereply.Timestamp = time.Now().Unix()
+	servicereply.Type = REP_CON_STATUS
+	servicereply.DeviceId = gd.AtlasDeviceId
+	//返回参数数组
+	servicereply.Code, servicereply.Msg = gd.reportStatus(&servicereply.Param)
+	return servicereply
 }

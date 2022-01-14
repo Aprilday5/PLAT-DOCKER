@@ -3,10 +3,10 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -29,14 +29,18 @@ const (
 	PORT           = "port"
 	IMAGEDIR       = "imagedir"
 	IMAGENAME      = "imagename"
+	DEVICEID       = "deviceid"
 )
 
 type GdDocker struct {
-	AtlasAddress       string
-	AtlasImageDir      string
-	AtlasImageFullName []string
-	AtlasImageName     []string
-	AtlasConIDMap      map[string]string
+	//从配置文件读取的参数
+	AtlasAddress        string
+	AtlasImageDir       string
+	AtlasImageFullNames []string
+	AtlasImageNames     []string
+	AtlasDeviceId       string
+	//从报文中读取的参数
+	AtlasConIDMap map[string]string
 }
 
 var once sync.Once
@@ -74,20 +78,20 @@ func (gd *GdDocker) updateornot() bool {
 	// 	panic("expected 2 images, got %v", images)
 	// }
 	var loadflag bool
-	for _, im := range gd.AtlasImageName {
+	for _, im := range gd.AtlasImageNames {
 		loadflag = true
 		for _, image := range images {
-			fmt.Println(image.Containers, image.ID, image.RepoTags, gd.AtlasImageName)
+			fmt.Println(image.Containers, image.ID, image.RepoTags, gd.AtlasImageNames)
 			if image.RepoTags[0] == im {
 				loadflag = false
 			}
 		}
 		if loadflag {
-			gd.AtlasImageFullName = append(gd.AtlasImageFullName, gd.AtlasImageDir+im+".tar")
+			gd.AtlasImageFullNames = append(gd.AtlasImageFullNames, gd.AtlasImageDir+im+".tar")
 		}
 	}
-	fmt.Printf("new image to load:%s", gd.AtlasImageFullName)
-	if cap(gd.AtlasImageFullName) > 0 {
+	fmt.Printf("new image to load:%s", gd.AtlasImageFullNames)
+	if cap(gd.AtlasImageFullNames) > 0 {
 		return true
 	} else {
 		return false
@@ -104,13 +108,13 @@ func (gd *GdDocker) loadImage() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(gd.AtlasImageFullName)
+		fmt.Println(gd.AtlasImageFullNames)
 		// reader, err := cli.ImagePull(ctx, "docker.io/library/alpine", types.ImagePullOptions{})
 		// if err != nil {
 		// 	panic(err)
 		// }
 		// io.Copy(os.Stdout, reader)
-		for _, imfullname := range gd.AtlasImageFullName {
+		for _, imfullname := range gd.AtlasImageFullNames {
 			file, err := os.Open(imfullname)
 			if err != nil {
 				fmt.Println("err=", err)
@@ -165,9 +169,13 @@ func (gd *GdDocker) conStart(containerName string) (code int, msg string) {
 
 	//start容器
 	containerID, err := gd.getIDbyContainerName(containerName)
-	if err != nil {
+	if err != nil || containerID == "_" {
 		code = 400
-		msg = err.Error()
+		if containerID == "_" {
+			msg = fmt.Sprintf("container %s don't exit", containerName)
+		} else {
+			msg = err.Error()
+		}
 		return code, msg
 	}
 	fmt.Printf("conStart:%s - %s", containerName, containerID)
@@ -191,9 +199,13 @@ func (gd *GdDocker) conStop(containerName string) (code int, msg string) {
 
 	//start容器
 	containerID, err := gd.getIDbyContainerName(containerName)
-	if err != nil {
+	if err != nil || containerID == "_" {
 		code = 400
-		msg = err.Error()
+		if containerID == "_" {
+			msg = fmt.Sprintf("container %s don't exit", containerName)
+		} else {
+			msg = err.Error()
+		}
 		return code, msg
 	}
 	fmt.Printf("conStop:%s - %s", containerName, containerID)
@@ -218,9 +230,13 @@ func (gd *GdDocker) conRemove(containerName string) (code int, msg string) {
 
 	//start容器
 	containerID, err := gd.getIDbyContainerName(containerName)
-	if err != nil {
+	if err != nil || containerID == "_" {
 		code = 400
-		msg = err.Error()
+		if containerID == "_" {
+			msg = fmt.Sprintf("container %s don't exit", containerName)
+		} else {
+			msg = err.Error()
+		}
 		return code, msg
 	}
 	fmt.Printf("conRemove:%s - %s", containerName, containerID)
@@ -246,15 +262,19 @@ func (gd *GdDocker) conStatus(containerName string, param *ServiceReplyParam) (c
 		panic(err)
 	}
 
-	//start容器
+	//查看容器名对应的id，没有就返回
 	containerID, err := gd.getIDbyContainerName(containerName)
-	if err != nil {
+	if err != nil || containerID == "_" {
 		code = 400
-		msg = err.Error()
+		if containerID == "_" {
+			msg = fmt.Sprintf("container %s don't exit", containerName)
+		} else {
+			msg = err.Error()
+		}
 		return code, msg
 	}
-	fmt.Printf("conStatus:%s - %s", containerName, containerID)
-
+	// fmt.Printf("conStatus:%s - %s", containerName, containerID)
+	/////////////////////////////////方法1
 	resp, err := cli.ContainerStats(ctx, containerID, false)
 	if err != nil {
 		panic(err)
@@ -265,22 +285,55 @@ func (gd *GdDocker) conStatus(containerName string, param *ServiceReplyParam) (c
 		panic(err)
 	}
 	fmt.Println(string(content))
-	r, err := cli.ContainerInspect(context.Background(), containerID)
 
+	m := new(STATUSREPLY)
+	err = json.Unmarshal(content, &m)
+	if err != nil {
+		fmt.Println("Umarshal failed:", err)
+		return
+	}
+	// fmt.Println(m.Read)
+
+	r, err1 := cli.ContainerInspect(ctx, containerID)
+	if err1 != nil {
+		panic(err)
+	}
 	//将stats和inspect信息赋值给状态参数
-	param.Cmd = "CMD_CON_STATUS"
+	tt0 := r.State.StartedAt[0:19]
+	tt1 := strings.Replace(tt0, "T", " ", 1)
+	Time1, _ := time.Parse("2006-01-02 15:04:05", tt1)
+	TimeNow := time.Now()
+	lifelong := TimeNow.Sub(Time1)
+	var cpup, memp int
+
+	if r.State.Status == "running" { //exited,running
+		cpuTotalUsage := m.Cpu_stats.System_cpu_usage / 10000000
+		preCpuTotalUsage := m.Precpu_stats.System_cpu_usage / 10000000
+
+		cpupraw := m.Cpu_stats.Online_cpus * (m.Cpu_stats.Cpu_usage.Total_usage - m.Precpu_stats.Cpu_usage.Total_usage) / (cpuTotalUsage - preCpuTotalUsage) / 100000
+		cpup = (int)(cpupraw)
+		fmt.Println(cpup)
+		mempraw := 100.0 * (m.Memory_stats.Usage - m.Memory_stats.Stats.Cache) / m.Memory_stats.Limit
+		memp = (int)(mempraw)
+		fmt.Println(memp)
+	} else {
+		cpup = 0
+		memp = 0
+	}
+
+	param.Cmd = CMD_CON_STATUS
 	constatusdata := ConStatusReply{
 		Container: containerName,
-		Version:   " ",
-		State:     r.State.Status,
-		CpuRate:   10,
-		Memory:    20,
-		Disk:      30,
-		Ip:        r.NetworkSettings.IPAddress,
-		Created:   r.Created,
-		Started:   r.State.StartedAt,
-		LifeTime:  100,
-		Image:     r.Config.Image,
+		// Version:   " ",
+		State:    r.State.Status,
+		CpuRate:  cpup,
+		Memory:   memp,
+		Disk:     0, //未配置
+		Ip:       r.NetworkSettings.IPAddress,
+		Created:  r.Created,
+		Started:  r.State.StartedAt,
+		LifeTime: (int64)(lifelong.Hours()),
+		Image:    r.Config.Image,
 	}
 
 	param.Paras = constatusdata
@@ -299,207 +352,76 @@ func (gd *GdDocker) conStatus(containerName string, param *ServiceReplyParam) (c
 	}
 	return code, msg
 }
-
-func (gd *GdDocker) version(w http.ResponseWriter, r *http.Request) {
-
-	// r.ParseForm()       //解析参数，默认是不会解析的
-	// fmt.Println(r.Form) //这些信息是输出到服务器端的打印信息
-	// fmt.Println("path", r.URL.Path)
-	// fmt.Println("scheme", r.URL.Scheme)
-	// fmt.Println(r.Form["url_long"])
-	// for k, v := range r.Form {
-	// 	fmt.Println("key:", k)
-	// 	fmt.Println("val:", strings.Join(v, ""))
-	// }
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
+func getstatus(cli *client.Client, ctx context.Context, name string, id string, csr *ConStatusReply) (code int, msg string) {
+	/////////////////////////////////方法1
+	resp, err := cli.ContainerStats(ctx, id, false)
 	if err != nil {
 		panic(err)
 	}
-	images, err := cli.ImageList(ctx, types.ImageListOptions{})
+	defer resp.Body.Close()
+	content, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		panic(err)
 	}
+	// fmt.Println(string(content))
 
-	for _, image := range images {
-		fmt.Println(image.RepoTags[0])
-		for _, tag := range image.RepoTags {
-			if strings.Contains(tag, gd.AtlasImageName[0]) { //版本不同
-				// if tag == "muchener/testcommitcp:v1" {
-				fmt.Println(w, tag)
-				break
-			}
-		}
-	}
-
-	fmt.Fprintf(w, "version!") //这个写入到w的是输出到客户端的
-}
-func (gd *GdDocker) imageUpgrade(w http.ResponseWriter, r *http.Request) {
-	var imageName string
-	var containerName string
-	r.ParseForm()
-	for k, v := range r.Form {
-		fmt.Println("key:", k)
-		fmt.Println("val:", strings.Join(v, ""))
-		if k == "imagename" {
-			imageName = v[0]
-			break
-		}
-	}
-
-	containerName = strings.ReplaceAll(imageName, "/", "-")
-	containerName = strings.ReplaceAll(containerName, ":", "-")
-
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
+	m := new(STATUSREPLY)
+	err = json.Unmarshal(content, &m)
 	if err != nil {
+		fmt.Println("Umarshal failed:", err)
+		return
+	}
+	// fmt.Println(m.Read)
+
+	r, err1 := cli.ContainerInspect(ctx, id)
+	if err1 != nil {
 		panic(err)
 	}
+	//将stats和inspect信息赋值给状态参数
+	tt0 := r.State.StartedAt[0:19]
+	tt1 := strings.Replace(tt0, "T", " ", 1)
+	Time1, _ := time.Parse("2006-01-02 15:04:05", tt1)
+	TimeNow := time.Now()
+	lifelong := TimeNow.Sub(Time1)
+	var cpup, memp int
 
-	file, err := os.Open(gd.AtlasImageFullName[0])
-	if err != nil {
-		fmt.Println("err=", err)
-	}
-	imageLoadResponse, err := cli.ImageLoad(ctx, file, true)
-	if err != nil {
-		panic(err)
-	}
-	body, err := ioutil.ReadAll(imageLoadResponse.Body)
-	if err != nil {
-		fmt.Println(" load err=", err)
-	}
-	fmt.Println(string(body))
+	if r.State.Status == "running" { //exited,running
+		cpuTotalUsage := m.Cpu_stats.System_cpu_usage / 10000000
+		preCpuTotalUsage := m.Precpu_stats.System_cpu_usage / 10000000
 
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Image: imageName,
-		// Cmd:   []string{"echo", "hello world2"},
-	}, nil, nil, nil, containerName) //镜像名称作为容器名称
-	if err != nil {
-		panic(err)
-	}
-
-	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-		panic(err)
-	}
-
-	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-	select {
-	case err := <-errCh:
-		if err != nil {
-			panic(err)
-		}
-	case <-statusCh:
-	}
-
-	fmt.Fprintf(w, "image upgrade success!") //这个写入到w的是输出到客户端的
-}
-func (gd *GdDocker) containerState(w http.ResponseWriter, r *http.Request) {
-
-	var containerName string
-	containerID := "containerid"
-
-	r.ParseForm()
-	for k, v := range r.Form {
-		if k == "containername" {
-			containerName = v[0]
-			break
-		}
-	}
-	//获取容器名对应的容器id
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
-	if err != nil {
-		panic(err)
-	}
-
-	// containerID = gd.getIDbyContainerName(containerName)
-
-	if containerID == "containerid" {
-		fmt.Fprintf(w, "No container named %s\n", containerName)
+		cpupraw := m.Cpu_stats.Online_cpus * (m.Cpu_stats.Cpu_usage.Total_usage - m.Precpu_stats.Cpu_usage.Total_usage) / (cpuTotalUsage - preCpuTotalUsage) / 100000
+		cpup = (int)(cpupraw)
+		fmt.Println(cpup)
+		mempraw := 100.0 * (m.Memory_stats.Usage - m.Memory_stats.Stats.Cache) / m.Memory_stats.Limit
+		memp = (int)(mempraw)
+		fmt.Println(memp)
 	} else {
-		//查看容器状态
-		resp, err := cli.ContainerStats(ctx, containerID, false)
-		if err != nil {
-			panic(err)
-		}
-		defer resp.Body.Close()
-		content, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Fprintf(w, "%s", content) //[/muchener-testcommitcp-v1] cffd3b0a35042f16eed861faaa671d0fbdfb53918f5c06e004668f13b2c69b34 muchener-testcommitcp-v1
-		fmt.Fprintf(w, "image containerState success!")
+		cpup = 0
+		memp = 0
 	}
+	csr.Container = name
+	// csr.Version = " "
+	csr.State = r.State.Status
+	csr.CpuRate = cpup
+	csr.Memory = memp
+	csr.Disk = 0 //未配置
+	csr.Ip = r.NetworkSettings.IPAddress
+	csr.Created = r.Created
+	csr.Started = r.State.StartedAt
+	csr.LifeTime = (int64)(lifelong.Hours())
+	csr.Image = r.Config.Image
+
+	fmt.Println(csr)
+	if err != nil {
+		code = 400
+		msg = err.Error()
+	} else {
+		code = 200
+		msg = "reportStatus success"
+	}
+	return code, msg
 }
-func (gd *GdDocker) getIDbyImageName(imagename string) string {
-	imageID := "imageid"
-
-	//获取容器名对应的容器id
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
-	if err != nil {
-		panic(err)
-	}
-
-	filters := filters.NewArgs()
-	//filters.Add("label", "muchener/testcommitcp")
-	// filters.Add("dangling", "true")
-	options := types.ImageListOptions{
-		Filters: filters,
-	}
-
-	images, err := cli.ImageList(ctx, options)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(len(images))
-	// if len(images) != 2 {
-	// 	panic("expected 2 images, got %v", images)
-	// }
-
-	for _, image := range images {
-		fmt.Println(image.Containers, image.ID, image.RepoTags, imagename)
-		if image.RepoTags[0] == imagename {
-			imageID = image.ID
-			break
-		}
-	}
-	return imageID
-}
-
-func (gd *GdDocker) removeImage(w http.ResponseWriter, r *http.Request) {
-	var imageID string
-	var imageName string
-	r.ParseForm()
-	for k, v := range r.Form {
-		fmt.Println("key:", k)
-		fmt.Println("val:", strings.Join(v, ""))
-		if k == "imagename" {
-			imageName = v[0]
-			break
-		}
-	}
-
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
-	if err != nil {
-		panic(err)
-	}
-	imageID = gd.getIDbyImageName(imageName)
-	imageDeletes, err := cli.ImageRemove(ctx, imageID, types.ImageRemoveOptions{
-		Force:         true,
-		PruneChildren: false,
-	})
-	if err != nil {
-		panic(err)
-	}
-	if len(imageDeletes) != 2 { //todo
-		fmt.Printf("expected 2 deleted images, got %v", imageDeletes)
-	}
-	fmt.Fprintf(w, "image remove success!") //这个写入到w的是输出到客户端的
-}
-
-func (gd *GdDocker) containersList(w http.ResponseWriter, r *http.Request) {
+func (gd *GdDocker) reportStatus(param *ServiceReplyParam) (code int, msg string) {
 
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
@@ -511,18 +433,156 @@ func (gd *GdDocker) containersList(w http.ResponseWriter, r *http.Request) {
 	}
 	containers, err := cli.ContainerList(ctx, options)
 	if err != nil {
-		panic(err)
+		return 400, err.Error()
 	}
+	paras := []ConStatusReply{}
+	pa := ConStatusReply{}
 	for _, container := range containers {
-		fmt.Println(container.Names)
-		fmt.Fprintf(w, container.Names[0])
-		fmt.Fprintf(w, "\n")
+		fmt.Printf("reportStatus:%s,%s", container.Names, container.ID)
+		//去掉/
+		fmt.Println(container.Names[0][1:])
+		code, msg = getstatus(cli, ctx, container.Names[0][1:], container.ID, &pa)
+		paras = append(paras, pa)
 	}
-	fmt.Fprintf(w, "containersList\n")
+
+	param.Cmd = REP_CON_STATUS
+	param.Paras = paras
+	fmt.Println(paras)
+	return code, msg
 }
+
+// func (gd *GdDocker) imageUpgrade(w http.ResponseWriter, r *http.Request) {
+// 	var imageName string
+// 	var containerName string
+// 	r.ParseForm()
+// 	for k, v := range r.Form {
+// 		fmt.Println("key:", k)
+// 		fmt.Println("val:", strings.Join(v, ""))
+// 		if k == "imagename" {
+// 			imageName = v[0]
+// 			break
+// 		}
+// 	}
+
+// 	containerName = strings.ReplaceAll(imageName, "/", "-")
+// 	containerName = strings.ReplaceAll(containerName, ":", "-")
+
+// 	ctx := context.Background()
+// 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	file, err := os.Open(gd.AtlasImageFullNames[0])
+// 	if err != nil {
+// 		fmt.Println("err=", err)
+// 	}
+// 	imageLoadResponse, err := cli.ImageLoad(ctx, file, true)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	body, err := ioutil.ReadAll(imageLoadResponse.Body)
+// 	if err != nil {
+// 		fmt.Println(" load err=", err)
+// 	}
+// 	fmt.Println(string(body))
+
+// 	resp, err := cli.ContainerCreate(ctx, &container.Config{
+// 		Image: imageName,
+// 		// Cmd:   []string{"echo", "hello world2"},
+// 	}, nil, nil, nil, containerName) //镜像名称作为容器名称
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+// 		panic(err)
+// 	}
+
+// 	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+// 	select {
+// 	case err := <-errCh:
+// 		if err != nil {
+// 			panic(err)
+// 		}
+// 	case <-statusCh:
+// 	}
+
+// 	fmt.Fprintf(w, "image upgrade success!") //这个写入到w的是输出到客户端的
+// }
+
+// func (gd *GdDocker) getIDbyImageName(imagename string) string {
+// 	imageID := "imageid"
+
+// 	//获取容器名对应的容器id
+// 	ctx := context.Background()
+// 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	filters := filters.NewArgs()
+// 	//filters.Add("label", "muchener/testcommitcp")
+// 	// filters.Add("dangling", "true")
+// 	options := types.ImageListOptions{
+// 		Filters: filters,
+// 	}
+
+// 	images, err := cli.ImageList(ctx, options)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	fmt.Println(len(images))
+// 	// if len(images) != 2 {
+// 	// 	panic("expected 2 images, got %v", images)
+// 	// }
+
+// 	for _, image := range images {
+// 		fmt.Println(image.Containers, image.ID, image.RepoTags, imagename)
+// 		if image.RepoTags[0] == imagename {
+// 			imageID = image.ID
+// 			break
+// 		}
+// 	}
+// 	return imageID
+// }
+
+// func (gd *GdDocker) removeImage(w http.ResponseWriter, r *http.Request) {
+// 	var imageID string
+// 	var imageName string
+// 	r.ParseForm()
+// 	for k, v := range r.Form {
+// 		fmt.Println("key:", k)
+// 		fmt.Println("val:", strings.Join(v, ""))
+// 		if k == "imagename" {
+// 			imageName = v[0]
+// 			break
+// 		}
+// 	}
+
+// 	ctx := context.Background()
+// 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	imageID = gd.getIDbyImageName(imageName)
+// 	imageDeletes, err := cli.ImageRemove(ctx, imageID, types.ImageRemoveOptions{
+// 		Force:         true,
+// 		PruneChildren: false,
+// 	})
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	if len(imageDeletes) != 2 { //todo
+// 		fmt.Printf("expected 2 deleted images, got %v", imageDeletes)
+// 	}
+// 	fmt.Fprintf(w, "image remove success!") //这个写入到w的是输出到客户端的
+// }
+
 func (gd *GdDocker) getIDbyContainerName(containername string) (containerID string, err error) {
 
 	//获取容器名对应的容器id
+	containerID = "_"
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
 	if err != nil {
@@ -545,40 +605,6 @@ func (gd *GdDocker) getIDbyContainerName(containername string) (containerID stri
 		}
 	}
 	return containerID, err
-}
-
-func (gd *GdDocker) containerRestart(w http.ResponseWriter, r *http.Request) {
-	var containerName string
-	containerID := "containerid"
-
-	r.ParseForm()
-	for k, v := range r.Form {
-		fmt.Println("key:", k)
-		fmt.Println("val:", strings.Join(v, ""))
-		// if strings.Contains(k, "containername") {
-		if k == "containername" {
-			containerName = v[0]
-			break
-		}
-	}
-	//获取容器名对应的容器id
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
-	if err != nil {
-		panic(err)
-	}
-	// containerID = gd.getIDbyContainerName(containerName)
-	if containerID == "containerid" {
-		fmt.Fprintf(w, "No container named %s\n", containerName)
-	} else {
-		//start容器
-		timeout := 100 * time.Second
-		err = cli.ContainerRestart(ctx, containerID, &timeout)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Fprintf(w, "containers %s restart success!\n", containerName)
-	}
 }
 
 //读取key=value类型的配置文件
@@ -616,8 +642,8 @@ func (gd *GdDocker) InitConfig(path string) {
 	}
 	gd.AtlasAddress = "http://" + config[HOST] + ":" + config[PORT]
 	gd.AtlasImageDir = config[IMAGEDIR]
-	gd.AtlasImageName = strings.Fields(config[IMAGENAME])
-
+	gd.AtlasImageNames = strings.Fields(config[IMAGENAME])
+	gd.AtlasDeviceId = config[DEVICEID]
 }
 func (gd *GdDocker) init() {
 	//读取并获取镜像名称
@@ -634,57 +660,58 @@ func (gd *GdDocker) init() {
 	// 	}
 	// }
 }
-func (gd *GdDocker) imgUpdate() error {
 
-	var containerName string
+// func (gd *GdDocker) imgUpdate() error {
 
-	containerName = strings.ReplaceAll(gd.AtlasImageName[0], "/", "-")
-	containerName = strings.ReplaceAll(containerName, ":", "-")
+// 	var containerName string
 
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
-	if err != nil {
-		panic(err)
-	}
-	//获取镜像版本，判断是否需要升级
-	if gd.updateornot() {
-		file, err := os.Open(gd.AtlasImageFullName[0])
-		if err != nil {
-			fmt.Println("err=", err)
-		}
-		imageLoadResponse, err := cli.ImageLoad(ctx, file, true)
-		if err != nil {
-			panic(err)
-		}
-		body, err := ioutil.ReadAll(imageLoadResponse.Body)
-		if err != nil {
-			fmt.Println(" load err=", err)
-		}
-		fmt.Println(string(body))
+// 	containerName = strings.ReplaceAll(gd.AtlasImageNames[0], "/", "-")
+// 	containerName = strings.ReplaceAll(containerName, ":", "-")
 
-		resp, err := cli.ContainerCreate(ctx, &container.Config{
-			Image: gd.AtlasImageName[0],
-			//Cmd:   []string{"echo", "hello world2"},
-		}, nil, nil, nil, containerName) //镜像名称作为容器名称
-		if err != nil {
-			panic(err)
-		}
+// 	ctx := context.Background()
+// 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	//获取镜像版本，判断是否需要升级
+// 	if gd.updateornot() {
+// 		file, err := os.Open(gd.AtlasImageFullNames[0])
+// 		if err != nil {
+// 			fmt.Println("err=", err)
+// 		}
+// 		imageLoadResponse, err := cli.ImageLoad(ctx, file, true)
+// 		if err != nil {
+// 			panic(err)
+// 		}
+// 		body, err := ioutil.ReadAll(imageLoadResponse.Body)
+// 		if err != nil {
+// 			fmt.Println(" load err=", err)
+// 		}
+// 		fmt.Println(string(body))
 
-		if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-			panic(err)
-		}
+// 		resp, err := cli.ContainerCreate(ctx, &container.Config{
+// 			Image: gd.AtlasImageNames[0],
+// 			//Cmd:   []string{"echo", "hello world2"},
+// 		}, nil, nil, nil, containerName) //镜像名称作为容器名称
+// 		if err != nil {
+// 			panic(err)
+// 		}
 
-		statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-		select {
-		case err := <-errCh:
-			if err != nil {
-				panic(err)
-			}
-		case <-statusCh:
-		}
-	} else {
-		fmt.Println("Current version is updated!")
-	}
+// 		if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+// 			panic(err)
+// 		}
 
-	return err
-}
+// 		statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+// 		select {
+// 		case err := <-errCh:
+// 			if err != nil {
+// 				panic(err)
+// 			}
+// 		case <-statusCh:
+// 		}
+// 	} else {
+// 		fmt.Println("Current version is updated!")
+// 	}
+
+// 	return err
+// }

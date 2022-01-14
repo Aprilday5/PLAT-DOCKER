@@ -9,7 +9,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"os"
 	"time"
 
@@ -44,16 +43,16 @@ var ServiceCMDHandler MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Me
 		servicereply = ca.FUNC_CMD_CON_STOP(servicecmd)
 	case CMD_CON_REMOVE:
 		servicereply = ca.FUNC_CMD_CON_REMOVE(servicecmd)
-	case CMD_CON_SET_CONFIG:
-		ca.FUNC_CMD_CON_SET_CONFIG()
-	case CMD_CON_GET_CONFIG:
-		ca.FUNC_CMD_CON_GET_CONFIG()
+	// case CMD_CON_SET_CONFIG:
+	// 	ca.FUNC_CMD_CON_SET_CONFIG()
+	// case CMD_CON_GET_CONFIG:
+	// 	ca.FUNC_CMD_CON_GET_CONFIG()
 	case CMD_CON_STATUS:
 		servicereply = ca.FUNC_CMD_CON_STATUS(servicecmd)
-	case CMD_CON_UPGRADE:
-		ca.FUNC_CMD_CON_UPGRADE()
-	case CMD_CON_LOG:
-		ca.FUNC_CMD_CON_LOG()
+	// case CMD_CON_UPGRADE:
+	// 	ca.FUNC_CMD_CON_UPGRADE()
+	// case CMD_CON_LOG:
+	// 	ca.FUNC_CMD_CON_LOG()
 	default:
 		fmt.Printf("there is no such cmd")
 	}
@@ -96,17 +95,21 @@ func main() {
 	//from the server after sending each message
 
 	go func() {
-		ticker := time.NewTicker(time.Second * 2)
+		ticker := time.NewTicker(time.Second * 60)
 		for range ticker.C {
 			//更新data内容
-			servicedata := new(ServiceData)
-			servicedata.Type = "CMD_REPORTDATA"
-			servicedata.Mid = rand.Int63()
-			servicedata.DeviceId = "001"
-			servicedata.Timestamp = time.Now().Unix()
-			servicedata.Param.Cmd = "data" //?
-			servicedata.Param.DeviceId = servicedata.DeviceId
-			servicedata.Param.Data = "datasample"
+			// servicedata := new(ServiceData)
+			// servicedata.Type = "CMD_REPORTDATA"
+			// servicedata.Mid = rand.Int63()
+			// servicedata.DeviceId = "001"
+			// servicedata.Timestamp = time.Now().Unix()
+			// servicedata.Param.Cmd = "data" //?
+			// servicedata.Param.DeviceId = servicedata.DeviceId
+			// servicedata.Param.Data = "datasample"
+			ca := new(ContainerAPI)
+			expectedLogLevel := models.DebugLog
+			ca.LoggingClient = logger.NewClient("atlasService", expectedLogLevel)
+			servicedata := ca.FUNC_REP_CON_STATUS()
 			data0, err := json.Marshal(servicedata)
 			if err != nil {
 				fmt.Println(err)
