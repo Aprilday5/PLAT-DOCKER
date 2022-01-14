@@ -49,6 +49,8 @@ var ServiceCMDHandler MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Me
 	// 	ca.FUNC_CMD_CON_GET_CONFIG()
 	case CMD_CON_STATUS:
 		servicereply = ca.FUNC_CMD_CON_STATUS(servicecmd)
+	case CMD_IMG_REMOVE:
+		servicereply = ca.FUNC_CMD_IMG_REMOVE(servicecmd)
 	// case CMD_CON_UPGRADE:
 	// 	ca.FUNC_CMD_CON_UPGRADE()
 	// case CMD_CON_LOG:

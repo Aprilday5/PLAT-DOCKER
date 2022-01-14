@@ -20,6 +20,7 @@ const (
 	// CMD_CON_GET_CONFIG = "CMD_CON_GET_CONFIG"
 	CMD_CON_STATUS = "CMD_CON_STATUS"
 	REP_CON_STATUS = "REP_CON_STATUS" //data主题
+	CMD_IMG_REMOVE = "CMD_IMG_REMOVE"
 	// EVENT_CON_ALARM    = "EVENT_CON_ALARM" //data主题
 	// CMD_CON_UPGRADE    = "CMD_CON_UPGRADE"
 	// REP_JOB_RESULT     = "REP_JOB_RESULT" //安装和升级结果上报，data主题
@@ -276,5 +277,20 @@ func (ca *ContainerAPI) FUNC_REP_CON_STATUS() *ServiceReply {
 	servicereply.DeviceId = gd.AtlasDeviceId
 	//返回参数数组
 	servicereply.Code, servicereply.Msg = gd.reportStatus(&servicereply.Param)
+	return servicereply
+}
+func (ca *ContainerAPI) FUNC_CMD_IMG_REMOVE(servicecmd *ServiceCMD) *ServiceReply {
+	var servicereply = new(ServiceReply)
+	var coninstallcmd = new(ConInstallCmd)
+
+	if err := mapstructure.Decode(servicecmd.Param.Paras, coninstallcmd); err != nil {
+		fmt.Println(err)
+	}
+	servicereply.Mid = servicecmd.Mid
+	servicereply.Timestamp = time.Now().Unix()
+	servicereply.Type = servicecmd.Type
+	servicereply.DeviceId = servicecmd.DeviceId
+	servicereply.Code, servicereply.Msg = gd.imgRemove(coninstallcmd.Image)
+
 	return servicereply
 }

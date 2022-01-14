@@ -450,6 +450,68 @@ func (gd *GdDocker) reportStatus(param *ServiceReplyParam) (code int, msg string
 	fmt.Println(paras)
 	return code, msg
 }
+func (gd *GdDocker) getIDbyImageName(imagename string) (imageID string, err error) {
+	imageID = "_"
+
+	//获取容器名对应的容器id
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
+	if err != nil {
+		panic(err)
+	}
+
+	filters := filters.NewArgs()
+	//filters.Add("label", "muchener/testcommitcp")
+	// filters.Add("dangling", "true")
+	options := types.ImageListOptions{
+		Filters: filters,
+	}
+	images, err := cli.ImageList(ctx, options)
+	if err != nil {
+		return "_", err
+	}
+	for _, image := range images {
+		fmt.Println(image.Containers, image.ID, image.RepoTags, imagename)
+		if image.RepoTags[0] == imagename {
+			imageID = image.ID
+			break
+		}
+	}
+	return imageID, err
+}
+func (gd *GdDocker) imgRemove(imageName string) (code int, msg string) {
+
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
+	if err != nil {
+		panic(err)
+	}
+
+	imageID, err := gd.getIDbyImageName(imageName)
+	if err != nil || imageID == "_" {
+		code = 400
+		if imageID == "_" {
+			msg = fmt.Sprintf("container %s don't exit", imageName)
+		} else {
+			msg = err.Error()
+		}
+		return code, msg
+	}
+	fmt.Printf("imgRemove:%s - %s", imageName, imageID)
+
+	imageDeletes, err := cli.ImageRemove(ctx, imageID, types.ImageRemoveOptions{
+		Force:         true,
+		PruneChildren: false,
+	})
+	if err != nil || len(imageDeletes) == 0 {
+		code = 400
+		msg = err.Error()
+	} else {
+		code = 200
+		msg = imageName + " remove success"
+	}
+	return code, msg
+}
 
 // func (gd *GdDocker) imageUpgrade(w http.ResponseWriter, r *http.Request) {
 // 	var imageName string
@@ -509,42 +571,6 @@ func (gd *GdDocker) reportStatus(param *ServiceReplyParam) (code int, msg string
 // 	}
 
 // 	fmt.Fprintf(w, "image upgrade success!") //这个写入到w的是输出到客户端的
-// }
-
-// func (gd *GdDocker) getIDbyImageName(imagename string) string {
-// 	imageID := "imageid"
-
-// 	//获取容器名对应的容器id
-// 	ctx := context.Background()
-// 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	filters := filters.NewArgs()
-// 	//filters.Add("label", "muchener/testcommitcp")
-// 	// filters.Add("dangling", "true")
-// 	options := types.ImageListOptions{
-// 		Filters: filters,
-// 	}
-
-// 	images, err := cli.ImageList(ctx, options)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	fmt.Println(len(images))
-// 	// if len(images) != 2 {
-// 	// 	panic("expected 2 images, got %v", images)
-// 	// }
-
-// 	for _, image := range images {
-// 		fmt.Println(image.Containers, image.ID, image.RepoTags, imagename)
-// 		if image.RepoTags[0] == imagename {
-// 			imageID = image.ID
-// 			break
-// 		}
-// 	}
-// 	return imageID
 // }
 
 // func (gd *GdDocker) removeImage(w http.ResponseWriter, r *http.Request) {
