@@ -100,6 +100,20 @@ type ConInstallReply struct {
 //start,stop,remove
 
 //config-set,get
+//status
+type ConStatusReply struct {
+	Container string `json:"container,omitempty"`
+	Version   string `json:"version,omitempty"`
+	State     string `json:"state,omitempty"`
+	CpuRate   int    `json:"cpu_rate,omitempty"`
+	Memory    int    `json:"memory,omitempty"`
+	Disk      int    `json:"disk,omitempty"`
+	Ip        string `json:"ip,omitempty"`
+	Created   string `json:"created,omitempty"`
+	Started   string `json:"started,omitempty"`
+	LifeTime  int64  `json:"life_time,omitempty"`
+	Image     string `json:"image,omitempty"`
+}
 
 //upgrade
 //log
@@ -136,7 +150,7 @@ func (ca *ContainerAPI) FUNC_CMD_CON_INSTALL(servicecmd *ServiceCMD) *ServiceRep
 
 	var servicereply = new(ServiceReply)
 	var coninstallcmd = new(ConInstallCmd)
-
+	//map转结构体
 	if err := mapstructure.Decode(servicecmd.Param.Paras, coninstallcmd); err != nil {
 		fmt.Println(err)
 	}
@@ -211,8 +225,20 @@ func (ca *ContainerAPI) FUNC_CMD_CON_SET_CONFIG() {
 func (ca *ContainerAPI) FUNC_CMD_CON_GET_CONFIG() {
 
 }
-func (ca *ContainerAPI) FUNC_CMD_CON_STATUS() {
+func (ca *ContainerAPI) FUNC_CMD_CON_STATUS(servicecmd *ServiceCMD) *ServiceReply {
+	var servicereply = new(ServiceReply)
+	var coninstallcmd = new(ConInstallCmd)
 
+	if err := mapstructure.Decode(servicecmd.Param.Paras, coninstallcmd); err != nil {
+		fmt.Println(err)
+	}
+	servicereply.Mid = servicecmd.Mid
+	servicereply.Timestamp = time.Now().Unix()
+	servicereply.Type = servicecmd.Type
+	servicereply.DeviceId = servicecmd.DeviceId
+	servicereply.Code, servicereply.Msg = gd.conStatus(coninstallcmd.Container, &servicereply.Param)
+
+	return servicereply
 }
 func (ca *ContainerAPI) FUNC_CMD_CON_UPGRADE() {
 

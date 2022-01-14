@@ -238,6 +238,67 @@ func (gd *GdDocker) conRemove(containerName string) (code int, msg string) {
 	}
 	return code, msg
 }
+func (gd *GdDocker) conStatus(containerName string, param *ServiceReplyParam) (code int, msg string) {
+
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
+	if err != nil {
+		panic(err)
+	}
+
+	//start容器
+	containerID, err := gd.getIDbyContainerName(containerName)
+	if err != nil {
+		code = 400
+		msg = err.Error()
+		return code, msg
+	}
+	fmt.Printf("conStatus:%s - %s", containerName, containerID)
+
+	resp, err := cli.ContainerStats(ctx, containerID, false)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	content, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(content))
+	r, err := cli.ContainerInspect(context.Background(), containerID)
+
+	//将stats和inspect信息赋值给状态参数
+	param.Cmd = "CMD_CON_STATUS"
+	constatusdata := ConStatusReply{
+		Container: containerName,
+		Version:   " ",
+		State:     r.State.Status,
+		CpuRate:   10,
+		Memory:    20,
+		Disk:      30,
+		Ip:        r.NetworkSettings.IPAddress,
+		Created:   r.Created,
+		Started:   r.State.StartedAt,
+		LifeTime:  100,
+		Image:     r.Config.Image,
+	}
+
+	param.Paras = constatusdata
+	fmt.Println(param.Paras.(ConStatusReply))
+	// info, err := cli.Info(ctx)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// fmt.Println(info)
+	if err != nil {
+		code = 400
+		msg = err.Error()
+	} else {
+		code = 200
+		msg = containerName + " get status success"
+	}
+	return code, msg
+}
 
 func (gd *GdDocker) version(w http.ResponseWriter, r *http.Request) {
 
@@ -484,41 +545,6 @@ func (gd *GdDocker) getIDbyContainerName(containername string) (containerID stri
 		}
 	}
 	return containerID, err
-}
-func (gd *GdDocker) containersDelete(w http.ResponseWriter, r *http.Request) {
-	var containerName string
-	containerID := "containerid"
-
-	r.ParseForm()
-	for k, v := range r.Form {
-		fmt.Println("key:", k)
-		fmt.Println("val:", strings.Join(v, ""))
-		if k == "containername" {
-			containerName = v[0]
-			break
-		}
-	}
-	//获取容器名对应的容器id
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(gd.AtlasAddress))
-	if err != nil {
-		panic(err)
-	}
-
-	// containerID = gd.getIDbyContainerName(containerName)
-	if containerID == "containerid" {
-		fmt.Fprintf(w, "No container named %s\n", containerName)
-	} else {
-		//删除容器
-		err = cli.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{
-			RemoveVolumes: true,
-			Force:         true,
-		})
-		if err != nil {
-			panic(err)
-		}
-		fmt.Fprintf(w, "containers %s Delete success!\n", containerName)
-	}
 }
 
 func (gd *GdDocker) containerRestart(w http.ResponseWriter, r *http.Request) {
