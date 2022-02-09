@@ -27,9 +27,9 @@ const (
 	// CMD_CON_LOG        = "CMD_CON_LOG"
 )
 const (
-	EDGE_CMD   = "/v1/appName/service/command"
-	EDGE_REPLY = "/v1/appName/service/reply"
-	EDGE_DATA  = "/v1/appName/service/data"
+	EDGE_CMD   = "/v1//service/command" //本地mqtt转发上层的指令param内容一致
+	EDGE_REPLY = "/v1//service/reply"
+	EDGE_DATA  = "/v1//service/data" //appName不重要，其中的deviceId来区分数据来自哪个设备
 )
 
 var waitchan = make(chan bool)
@@ -274,7 +274,7 @@ func (ca *ContainerAPI) FUNC_REP_CON_STATUS() *ServiceReply {
 	servicereply.Mid = 12345678
 	servicereply.Timestamp = time.Now().Unix()
 	servicereply.Type = REP_CON_STATUS
-	servicereply.DeviceId = gd.AtlasDeviceId
+	servicereply.DeviceId = gd.AtlasDeviceId //id需要下发命令查询
 	//返回参数数组
 	servicereply.Code, servicereply.Msg = gd.reportStatus(&servicereply.Param)
 	return servicereply

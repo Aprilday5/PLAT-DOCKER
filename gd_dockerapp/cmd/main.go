@@ -78,7 +78,7 @@ func main() {
 
 	//create a ClientOptions struct setting the broker address, clientid, turn
 	//off trace output and set the default message handler
-	opts := MQTT.NewClientOptions().AddBroker("tcp://192.168.3.68:1883")
+	opts := MQTT.NewClientOptions().AddBroker(gd.EdgeMqttAddress)
 	opts.SetClientID("gddockerapp")
 	opts.SetDefaultPublishHandler(ServiceDataHandler)
 
@@ -87,6 +87,7 @@ func main() {
 	if token := c.Connect(); token.Wait() && token.Error() != nil {
 		panic(token.Error())
 	}
+	gd.AtlasDeviceId = getdeviceid(c)
 	//subscribe to the topic /go-mqtt/sample and request messages to be delivered
 	//at a maximum qos of zero, wait for the receipt to confirm the subscription
 	if token := c.Subscribe(EDGE_CMD, 0, ServiceCMDHandler); token.Wait() && token.Error() != nil {
@@ -124,4 +125,47 @@ func main() {
 	time.Sleep(3 * time.Second)
 	<-waitchan
 
+}
+
+// 主题：/v1/appName/topo/request
+// {
+// "type":"CMD_TOPO_ADD",
+// "mid":1000000000020028,
+// "timestamp":1581384683012,
+// "expire":-1,
+// "param":{
+// "nodeInfos":[
+// { "nodeId":"atlas200-01",
+// "name":"设备之AI加速器",
+//  "description":"ATLAS_des",
+//  "mfgInfo":"HUAWEI",
+//  "nodeModel":"virtal_atlas",
+// "modelId":"virtal_atlas" }] } }
+
+// 主题：/v1/appName/topo/response
+// {"mid":1000000000020028,
+// "deviceId":"2001001000160866",
+// "timestamp":1643079340,
+// "type":"CMD_TOPO_ADD",
+// "code":200,
+// "msg":"SUCCESS!",
+// "param":{"result":
+// [{"statusCode":200,
+// "statusDesc":"SUCCESS!",
+// "nodeId":"atlas200-01",
+// "deviceId":"2001001000160867",
+// "profile":{"url":"","name":"","size":0,"md5":""}}]}}
+func getdeviceid(c MQTT.Client) (id string) {
+	ca := new(ContainerAPI)
+	expectedLogLevel := models.DebugLog
+	ca.LoggingClient = logger.NewClient("atlasService", expectedLogLevel)
+	servicedata := ca.FUNC_REP_CON_STATUS()
+	data0, err := json.Marshal(servicedata)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	token := c.Publish(EDGE_DATA, 0, false, data0)
+	token.Wait()
+	return id
 }

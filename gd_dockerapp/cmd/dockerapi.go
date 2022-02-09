@@ -30,15 +30,21 @@ const (
 	IMAGEDIR       = "imagedir"
 	IMAGENAME      = "imagename"
 	DEVICEID       = "deviceid"
+	TCPHOST        = "tcphost"
+	REPCMD         = "repcmd"
+	REPFUNCODE     = "repfuncode"
 )
 
 type GdDocker struct {
 	//从配置文件读取的参数
+	EdgeMqttAddress     string
 	AtlasAddress        string
 	AtlasImageDir       string
 	AtlasImageFullNames []string
 	AtlasImageNames     []string
 	AtlasDeviceId       string
+	EdgeRepCmd          string
+	EdgeRepFunCode      string
 	//从报文中读取的参数
 	AtlasConIDMap map[string]string
 }
@@ -666,10 +672,12 @@ func (gd *GdDocker) InitConfig(path string) {
 		}
 		config[key] = value
 	}
+	gd.EdgeMqttAddress = config[TCPHOST]
 	gd.AtlasAddress = "http://" + config[HOST] + ":" + config[PORT]
 	gd.AtlasImageDir = config[IMAGEDIR]
 	gd.AtlasImageNames = strings.Fields(config[IMAGENAME])
-	gd.AtlasDeviceId = config[DEVICEID]
+	gd.EdgeRepCmd = config[REPCMD]
+	gd.EdgeRepFunCode = config[REPFUNCODE]
 }
 func (gd *GdDocker) init() {
 	//读取并获取镜像名称

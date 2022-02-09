@@ -29,5 +29,5 @@ docker: $(DOCKERS)
 docker_gddockerapp_go:
 	docker build \
 		--label "git_sha=$(GIT_SHA)" \
-		-t gddockerapp:v1\
+		-t gddockerapp:$(VERSION)\
 		.
