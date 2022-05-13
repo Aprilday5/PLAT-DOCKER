@@ -1,0 +1,551 @@
+#  * Copyright 2020 Intel Corporation.
+#  *
+#  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+#  * in compliance with the License. You may obtain a copy of the License at
+#  *
+#  * http://www.apache.org/licenses/LICENSE-2.0
+#  *
+#  * Unless required by applicable law or agreed to in writing, software distributed under the License
+#  * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+#  * or implied. See the License for the specific language governing permissions and limitations under
+#  * the License.
+#  *
+#  * EdgeX Foundry, Hanoi, version "master"
+#  *******************************************************************************/
+#
+#
+#
+# ************************ This is a generated compose file ****************************
+#
+# DO NOT MAKE CHANGES that are intended to be permanent to EdgeX developer-scripts repo.
+#
+# Permanent changes can be made to the source compose files located in the compose-builder folder
+# at the top level of the developer-scripts repo.
+#
+# From the compose-builder folder use `make build` to regenerate all standard compose files variations
+#
+version: '3.7'
+volumes:
+  consul-config: {}
+  consul-data: {}
+  consul-scripts: {}
+  db-data: {}
+  log-data: {}
+  portainer_data:
+networks:
+  edgex-network:
+    driver: bridge
+services:
+#  app-service-rules:
+#    container_name: edgex-app-service-configurable-rules
+#    depends_on:
+#    - consul
+#    - data
+#    environment:
+#      BINDING_PUBLISHTOPIC: events
+#      CLIENTS_COMMAND_HOST: edgex-core-command
+#      CLIENTS_COREDATA_HOST: edgex-core-data
+#      CLIENTS_DATA_HOST: edgex-core-data
+#      CLIENTS_METADATA_HOST: edgex-core-metadata
+#      CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+#      CLIENTS_RULESENGINE_HOST: edgex-kuiper
+#      CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+#      CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+#      DATABASES_PRIMARY_HOST: edgex-redis
+#      EDGEX_PROFILE: rules-engine
+#      EDGEX_SECURITY_SECRET_STORE: "false"
+#      MESSAGEBUS_SUBSCRIBEHOST_HOST: edgex-core-data
+#      REGISTRY_HOST: edgex-core-consul
+#      SERVICE_HOST: edgex-app-service-configurable-rules
+#      SERVICE_PORT: 48100
+#    hostname: edgex-app-service-configurable-rules
+#    image: edgexfoundry/docker-app-service-configurable-armhf:1.3.1
+#    networks:
+#      edgex-network: {}
+#    ports:
+#    - 48100:48100/tcp
+#    read_only: true
+  command:
+    container_name: edgex-core-command
+    depends_on:
+    - consul
+    - database
+    - metadata
+    environment:
+      CLIENTS_COMMAND_HOST: edgex-core-command
+      CLIENTS_COREDATA_HOST: edgex-core-data
+      CLIENTS_DATA_HOST: edgex-core-data
+      CLIENTS_METADATA_HOST: edgex-core-metadata
+      CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+      CLIENTS_RULESENGINE_HOST: edgex-kuiper
+      CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+      CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+      DATABASES_PRIMARY_HOST: edgex-redis
+      EDGEX_SECURITY_SECRET_STORE: "false"
+      REGISTRY_HOST: edgex-core-consul
+      SERVICE_HOST: edgex-core-command
+    hostname: edgex-core-command
+    image: edgexfoundry/docker-core-command-go-armhf:1.3.1
+    networks:
+      edgex-network: {}
+    ports:
+    - 48082:48082/tcp
+    read_only: true
+  consul:
+    container_name: edgex-core-consul
+    environment:
+      EDGEX_DB: redis
+      EDGEX_SECURE: "false"
+    hostname: edgex-core-consul
+    image: edgexfoundry/docker-edgex-consul:1.3.0
+    networks:
+      edgex-network: {}
+    ports:
+    - 8500:8500/tcp
+    read_only: true
+    volumes:
+    - consul-config:/consul/config:z
+    - consul-data:/consul/data:z
+    - consul-scripts:/consul/scripts:z
+  data:
+    container_name: edgex-core-data
+    depends_on:
+    - consul
+    - database
+    - metadata
+    environment:
+      CLIENTS_COMMAND_HOST: edgex-core-command
+      CLIENTS_COREDATA_HOST: edgex-core-data
+      CLIENTS_DATA_HOST: edgex-core-data
+      CLIENTS_METADATA_HOST: edgex-core-metadata
+      CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+      CLIENTS_RULESENGINE_HOST: edgex-kuiper
+      CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+      CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+      DATABASES_PRIMARY_HOST: edgex-redis
+      EDGEX_SECURITY_SECRET_STORE: "false"
+      REGISTRY_HOST: edgex-core-consul
+      SERVICE_HOST: edgex-core-data
+    hostname: edgex-core-data
+    image: edgexfoundry/docker-core-data-go-armhf:1.3.1
+    networks:
+      edgex-network: {}
+    ports:
+    - 5563:5563/tcp
+    - 48080:48080/tcp
+    read_only: true
+  database:
+    container_name: edgex-redis
+    environment:
+      CLIENTS_COMMAND_HOST: edgex-core-command
+      CLIENTS_COREDATA_HOST: edgex-core-data
+      CLIENTS_DATA_HOST: edgex-core-data
+      CLIENTS_METADATA_HOST: edgex-core-metadata
+      CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+      CLIENTS_RULESENGINE_HOST: edgex-kuiper
+      CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+      CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+      DATABASES_PRIMARY_HOST: edgex-redis
+      EDGEX_SECURITY_SECRET_STORE: "false"
+      REGISTRY_HOST: edgex-core-consul
+    hostname: edgex-redis
+    image: arm32v7/redis:6.0.13-alpine
+    networks:
+      edgex-network: {}
+    ports:
+    - 6379:6379/tcp
+    read_only: true
+    volumes:
+    - db-data:/data:z
+#  device-rest:
+#    container_name: edgex-device-rest
+#    depends_on:
+#    - consul
+#    - data
+#    - metadata
+#    environment:
+#      CLIENTS_COMMAND_HOST: edgex-core-command
+#      CLIENTS_COREDATA_HOST: edgex-core-data
+#      CLIENTS_DATA_HOST: edgex-core-data
+#      CLIENTS_METADATA_HOST: edgex-core-metadata
+#      CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+#      CLIENTS_RULESENGINE_HOST: edgex-kuiper
+#      CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+#      CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+#      DATABASES_PRIMARY_HOST: edgex-redis
+#      EDGEX_SECURITY_SECRET_STORE: "false"
+#      REGISTRY_HOST: edgex-core-consul
+#      SERVICE_HOST: edgex-device-rest
+#    hostname: edgex-device-rest
+#    image: edgexfoundry/docker-device-rest-go-armhf:1.2.1
+#    networks:
+#      edgex-network: {}
+#    ports:
+#    - 49986:49986/tcp
+#    read_only: true
+  # device-gpo:
+  #   container_name: edgex-device-gpo
+  #   depends_on:
+  #   - consul
+  #   - data
+  #   - metadata
+  #   environment:
+  #     CLIENTS_COMMAND_HOST: edgex-core-command
+  #     CLIENTS_COREDATA_HOST: edgex-core-data
+  #     CLIENTS_DATA_HOST: edgex-core-data
+  #     CLIENTS_METADATA_HOST: edgex-core-metadata
+  #     CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+  #     CLIENTS_RULESENGINE_HOST: edgex-kuiper
+  #     CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+  #     CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+  #     DATABASES_PRIMARY_HOST: edgex-redis
+  #     EDGEX_SECURITY_SECRET_STORE: "false"
+  #     REGISTRY_HOST: edgex-core-consul
+  #     SERVICE_HOST: edgex-device-gpo
+  #   hostname: edgex-device-gpo
+  #   image: edgexfoundry/docker-device-gpo-go-armhf:1.3.1
+  #   networks:
+  #     edgex-network: {}
+  #   ports:
+  #   - 49994:49994/tcp
+  #   volumes:
+  #   - /sys:/sys
+  # device-gpi:
+  #   container_name: edgex-device-gpi
+  #   depends_on:
+  #   - consul
+  #   - data
+  #   - metadata
+  #   environment:
+  #     CLIENTS_COMMAND_HOST: edgex-core-command
+  #     CLIENTS_COREDATA_HOST: edgex-core-data
+  #     CLIENTS_DATA_HOST: edgex-core-data
+  #     CLIENTS_METADATA_HOST: edgex-core-metadata
+  #     CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+  #     CLIENTS_RULESENGINE_HOST: edgex-kuiper
+  #     CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+  #     CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+  #     DATABASES_PRIMARY_HOST: edgex-redis
+  #     EDGEX_SECURITY_SECRET_STORE: "false"
+  #     REGISTRY_HOST: edgex-core-consul
+  #     SERVICE_HOST: edgex-device-gpi
+  #   hostname: edgex-device-gpi
+  #   image: edgexfoundry/docker-device-gpi-go-armhf:1.3.1
+  #   networks:
+  #     edgex-network: {}
+  #   ports:
+  #   - 49995:49995/tcp
+  #   volumes:
+  #   - /sys:/sys
+  metadata:
+    container_name: edgex-core-metadata
+    depends_on:
+    - consul
+    - database
+    - notifications
+    environment:
+      CLIENTS_COMMAND_HOST: edgex-core-command
+      CLIENTS_COREDATA_HOST: edgex-core-data
+      CLIENTS_DATA_HOST: edgex-core-data
+      CLIENTS_METADATA_HOST: edgex-core-metadata
+      CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+      CLIENTS_RULESENGINE_HOST: edgex-kuiper
+      CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+      CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+      DATABASES_PRIMARY_HOST: edgex-redis
+      EDGEX_SECURITY_SECRET_STORE: "false"
+      NOTIFICATIONS_SENDER: edgex-core-metadata
+      REGISTRY_HOST: edgex-core-consul
+      SERVICE_HOST: edgex-core-metadata
+    hostname: edgex-core-metadata
+    image: edgexfoundry/docker-core-metadata-go-armhf:1.3.1
+    networks:
+      edgex-network: {}
+    ports:
+    - 48081:48081/tcp
+    read_only: true
+  notifications:
+    container_name: edgex-support-notifications
+    depends_on:
+    - consul
+    - database
+    environment:
+      CLIENTS_COMMAND_HOST: edgex-core-command
+      CLIENTS_COREDATA_HOST: edgex-core-data
+      CLIENTS_DATA_HOST: edgex-core-data
+      CLIENTS_METADATA_HOST: edgex-core-metadata
+      CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+      CLIENTS_RULESENGINE_HOST: edgex-kuiper
+      CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+      CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+      DATABASES_PRIMARY_HOST: edgex-redis
+      EDGEX_SECURITY_SECRET_STORE: "false"
+      REGISTRY_HOST: edgex-core-consul
+      SERVICE_HOST: edgex-support-notifications
+    hostname: edgex-support-notifications
+    image: edgexfoundry/docker-support-notifications-go-armhf:1.3.1
+    networks:
+      edgex-network: {}
+    ports:
+    - 48060:48060/tcp
+    read_only: true
+  rulesengine:
+    container_name: edgex-kuiper
+#    depends_on:
+#    - app-service-rules
+    environment:
+      EDGEX__DEFAULT__PORT: 5563
+      EDGEX__DEFAULT__PROTOCOL: tcp
+      EDGEX__DEFAULT__SERVER: edgex-core-data
+      EDGEX__DEFAULT__SERVICESERVER: http://edgex-core-data:48080
+      EDGEX__DEFAULT__TOPIC: events
+      KUIPER__BASIC__CONSOLELOG: "true"
+      KUIPER__BASIC__RESTPORT: 48075
+    hostname: edgex-kuiper
+    image: emqx/kuiper:1.2.0-alpine
+    networks:
+      edgex-network: {}
+    ports:
+    - 20498:20498/tcp
+    - 48075:48075/tcp
+  scheduler:
+    container_name: edgex-support-scheduler
+    depends_on:
+    - consul
+    - database
+    environment:
+      CLIENTS_COMMAND_HOST: edgex-core-command
+      CLIENTS_COREDATA_HOST: edgex-core-data
+      CLIENTS_DATA_HOST: edgex-core-data
+      CLIENTS_METADATA_HOST: edgex-core-metadata
+      CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+      CLIENTS_RULESENGINE_HOST: edgex-kuiper
+      CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+      CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+      DATABASES_PRIMARY_HOST: edgex-redis
+      EDGEX_SECURITY_SECRET_STORE: "false"
+      INTERVALACTIONS_SCRUBAGED_HOST: edgex-core-data
+      INTERVALACTIONS_SCRUBPUSHED_HOST: edgex-core-data
+      REGISTRY_HOST: edgex-core-consul
+      SERVICE_HOST: edgex-support-scheduler
+    hostname: edgex-support-scheduler
+    image: edgexfoundry/docker-support-scheduler-go-armhf:1.3.1
+    networks:
+      edgex-network: {}
+    ports:
+    - 48085:48085/tcp
+    read_only: true
+  system:
+    container_name: edgex-sys-mgmt-agent
+    depends_on:
+    - command
+    - consul
+    - data
+    - metadata
+    - notifications
+    - scheduler
+    environment:
+      CLIENTS_COMMAND_HOST: edgex-core-command
+      CLIENTS_COREDATA_HOST: edgex-core-data
+      CLIENTS_DATA_HOST: edgex-core-data
+      CLIENTS_METADATA_HOST: edgex-core-metadata
+      CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+      CLIENTS_RULESENGINE_HOST: edgex-kuiper
+      CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+      CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+      DATABASES_PRIMARY_HOST: edgex-redis
+      EDGEX_SECURITY_SECRET_STORE: "false"
+      EXECUTORPATH: /sys-mgmt-executor
+      METRICSMECHANISM: executor
+      REGISTRY_HOST: edgex-core-consul
+      SERVICE_HOST: edgex-sys-mgmt-agent
+    hostname: edgex-sys-mgmt-agent
+    image: edgexfoundry/docker-sys-mgmt-agent-go-armhf:1.3.1
+    networks:
+      edgex-network: {}
+    ports:
+    - 48090:48090/tcp
+    read_only: true
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:z
+  ui:
+    container_name: edgex-ui-go
+    hostname: edgex-ui-go
+    image: edgexfoundry/docker-edgex-ui-go-armhf:1.3.0
+    networks:
+      edgex-network: null
+    ports:
+    - 4000:4000/tcp
+  # device-dlt645:
+  #   image: edgexfoundry/docker-device-dlt645-go-armhf:1.3.0
+  #   ports:
+  #     - 49992:49992
+  #   devices:
+  #     - /dev/ttyS5:/dev/ttys485WK0
+  #     - /dev/ttyS4:/dev/ttys485WK1
+  #     - /dev/ttyS3:/dev/ttys485WK2
+  #     - /dev/ttyS7:/dev/ttys485WK3
+  #   container_name: edgex-device-dlt645
+  #   hostname: edgex-device-dlt645
+  #   networks:
+  #     - edgex-network
+  #   environment:
+  #     SERVICE_HOST: device-dlt645
+  #     REGISTRY_HOST: edgex-core-consul
+  #     CLIENTS_COREDATA_HOST: edgex-core-data
+  #     CLIENTS_DATA_HOST: edgex-core-data
+  #     CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+  #     CLIENTS_METADATA_HOST: edgex-core-metadata
+  #     CLIENTS_COMMAND_HOST: edgex-core-command
+  #     CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+  #     CLIENTS_RULESENGINE_HOST: edgex-kuiper
+  #     CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+  #     DATABASES_PRIMARY_HOST: edgex-redis
+  #   depends_on:
+  #     - consul
+  #     - data
+  #     - metadata
+  # device-modbus:
+  #   image: edgexfoundry/docker-device-modbus-go-armhf:1.3.1
+  #   ports:
+  #     - 49991:49991
+  #   devices:
+  #     - /dev/ttyS5:/dev/ttys485WK0
+  #     - /dev/ttyS4:/dev/ttys485WK1
+  #     - /dev/ttyS3:/dev/ttys485WK2
+  #     - /dev/ttyS7:/dev/ttys485WK3 
+  #   container_name: edgex-device-modbus
+  #   hostname: edgex-device-modbus
+  #   networks:
+  #     - edgex-network
+  #   environment:
+  #     SERVICE_HOST: edgex-device-modbus
+  #     REGISTRY_HOST: edgex-core-consul
+  #     CLIENTS_COREDATA_HOST: edgex-core-data
+  #     CLIENTS_DATA_HOST: edgex-core-data
+  #     CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+  #     CLIENTS_METADATA_HOST: edgex-core-metadata
+  #     CLIENTS_COMMAND_HOST: edgex-core-command
+  #     CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+  #     CLIENTS_RULESENGINE_HOST: edgex-kuiper
+  #     CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+  #     DATABASES_PRIMARY_HOST: edgex-redis    
+  #   depends_on:
+  #     - consul
+  #     - data
+  #     - metadata
+#  docker-device-camera-go:
+#    image: device-camera-go:latest
+#    ports:
+#      - 49985:49985
+#    container_name: edgex-device-camera-go
+#    hostname: edgex-device-camera-go
+#    networks:
+#      - edgex-network
+#    environment:
+#      SERVICE_HOST: edgex-device-camera-go
+#      REGISTRY_HOST: edgex-core-consul
+#      CLIENTS_COREDATA_HOST: edgex-core-data
+#      CLIENTS_DATA_HOST: edgex-core-data
+#      CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+#      CLIENTS_METADATA_HOST: edgex-core-metadata
+#      CLIENTS_COMMAND_HOST: edgex-core-command
+#      CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+#      CLIENTS_RULESENGINE_HOST: edgex-kuiper
+#      CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+#      DATABASES_PRIMARY_HOST: edgex-redis
+#    volumes:
+#      - db-data:/data/db
+#      - log-data:/edgex/logs
+#      - consul-config:/consul/config
+#      - consul-data:/consul/data
+#    depends_on:
+#      - data
+#      - command
+#      - metadata
+#      - consul
+#  app-104:
+#    image: edgexfoundry/app-104-armhf:1.3.1 
+#    ports:
+#      - 48095:48095/tcp
+#      - 2404:2404/tcp
+#    container_name: app-104
+#    hostname: app-104
+#    environment:
+#      REGISTRY_HOST: edgex-core-consul
+#      CLIENTS_COREDATA_HOST: edgex-core-data
+#      CLIENTS_DATA_HOST: edgex-core-data
+#      CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+#      CLIENTS_METADATA_HOST: edgex-core-metadata
+#      CLIENTS_COMMAND_HOST: edgex-core-command
+#      CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+#      CLIENTS_RULESENGINE_HOST: edgex-kuiper
+#      CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+#      DATABASES_PRIMARY_HOST: edgex-redis    
+#      SERVICE_HOST: app-104
+#      SERVICE_PORT: 48095
+#    depends_on:
+#      - consul
+#      - data
+#    read_only: true
+#    networks:
+#      - edgex-network  
+  # app-power-iot:
+  #   image: edgexfoundry/app-power-iot-sxd-armhf:1.3.1
+  #   ports:
+  #     - 48098:48098/tcp
+  #   container_name: app-power-iot
+  #   hostname: app-power-iot
+  #   environment:
+  #     REGISTRY_HOST: edgex-core-consul
+  #     CLIENTS_COREDATA_HOST: edgex-core-data
+  #     CLIENTS_DATA_HOST: edgex-core-data
+  #     CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+  #     CLIENTS_METADATA_HOST: edgex-core-metadata
+  #     CLIENTS_COMMAND_HOST: edgex-core-command
+  #     CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+  #     CLIENTS_RULESENGINE_HOST: edgex-kuiper
+  #     CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+  #     DATABASES_PRIMARY_HOST: edgex-redis
+  #     SERVICE_HOST: app-power-iot
+  #     SERVICE_PORT: 48098
+  #   depends_on:
+  #     - consul
+  #     - data
+  #   read_only: true
+  #   networks:
+  #     - edgex-network
+#  app-aicmt:
+#    image: edgexfoundry/docker-app-aicmt-armhf:1.3.1
+#    ports:
+#      - 127.0.0.1:48096:48096/tcp
+#    container_name: docker-app-aicmt
+#    hostname: docker-app-aicmt
+#    environment:
+#      REGISTRY_HOST: edgex-core-consul
+#      CLIENTS_COREDATA_HOST: edgex-core-data
+#      CLIENTS_DATA_HOST: edgex-core-data
+#      CLIENTS_NOTIFICATIONS_HOST: edgex-support-notifications
+#      CLIENTS_METADATA_HOST: edgex-core-metadata
+#      CLIENTS_COMMAND_HOST: edgex-core-command
+#      CLIENTS_SCHEDULER_HOST: edgex-support-scheduler
+#      CLIENTS_RULESENGINE_HOST: edgex-kuiper
+#      CLIENTS_VIRTUALDEVICE_HOST: edgex-device-virtual
+#      DATABASES_PRIMARY_HOST: edgex-redis    
+#      SERVICE_HOST: docker-app-aicmt
+#      SERVICE_PORT: 48096
+#    depends_on:
+#      - consul
+#      - data
+#    read_only: true
+#    networks:
+#      - edgex-network 
+  portainer:
+    image:  portainer/portainer
+    ports:
+      - "9000:9000"
+    container_name: portainer
+    command: -H unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:z
+      - portainer_data:/data

@@ -1,0 +1,85 @@
+连接成功的log：
+time="2021-07-09 06:23:51" level=info msg="Stream demo is created." file="processors/xsql_processor.go:50" //创建stream叫做demo
+time="2021-07-09 06:33:06" level=info msg="Rule rule1 is created." file="processors/xsql_processor.go:319"//创建规则rule1
+time="2021-07-09 06:33:06" level=info msg="Init rule with options &{IsEventTime:false LateTol:1000 Concurrency:1 BufferLength:1024 SendMetaToSink:false SendError:true Qos:0 CheckpointInterval:300000}" file="planner/planner.go:26" //根据选项初始化规则
+time="2021-07-09 06:33:06" level=info msg="Rule rule1 is replaced." file="processors/xsql_processor.go:368"//被取代。。？
+time="2021-07-09 06:33:06" level=info msg="Opening stream" file="xstream/streams.go:132" rule=rule1//打开数据流
+time="2021-07-09 06:33:06" level=info msg="open source node demo with option &{  JSON  edgex false   0}" file="nodes/source_node.go:63" rule=rule1//打开demo数据流
+time="2021-07-09 06:33:06" level=info msg="open source node 1 instances" file="nodes/source_node.go:86" rule=rule1 //打开一个source node实例
+time="2021-07-09 06:33:06" level=info msg="open sink node 1 instances" file="nodes/sink_node.go:164" rule=rule1//打开一个sink node实例
+time="2021-07-09 06:33:06" level=info msg="open sink node 1 instances" file="nodes/sink_node.go:164" rule=rule1//打开一个sink node实例
+time="2021-07-09 06:33:06" level=info msg="Opening mqtt sink for rule rule1." file="sinks/mqtt_sink.go:134" rule=rule1 //打开一个mqttsink
+time="2021-07-09 06:33:06" level=info msg="Connect MQTT broker with username and password." file="sinks/mqtt_sink.go:153" rule=rule1//连接MQTT broker
+time="2021-07-09 06:33:06" level=info msg="Opening func collector" file="collectors/func.go:36" rule=rule1 //打开函数采集器？
+time="2021-07-09 06:33:06" level=info msg="Use configuration for edgex messagebus {{ 0 } {edgex-redis 6379 redis} redis map[]}" file="extensions/edgex_source.go:91"
+time="2021-07-09 06:33:06" level=info msg="Start source demo instance 0 successfully" file="nodes/source_node.go:135" rule=rule1 //启动了demo实例
+time="2021-07-09 06:33:06" level=info msg="The connection to edgex messagebus is established successfully." file="extensions/edgex_source.go:102" rule=rule1//连接到消息总线
+time="2021-07-09 06:33:06" level=info msg="Successfully subscribed to edgex messagebus topic rules-events." file="extensions/edgex_source.go:111" rule=rule1//订阅了消息总线
+
+time="2021-07-09 06:33:06" level=info msg="sink result for rule rule1: [{\"Int16\":20562}]" file="sinks/log_sink.go:16" rule=rule1
+time="2021-07-09 06:33:06" level=info msg="sink result for rule rule1: [{\"Int32\":-1672412678}]" file="sinks/log_sink.go:16" rule=rule1
+time="2021-07-09 06:33:06" level=info msg="sink result for rule rule1: [{\"Int64\":5775798513747209606}]" file="sinks/log_sink.go:16" rule=rule1
+time="2021-07-09 06:33:06" level=info msg="sink result for rule rule1: [{\"Int8\":99}]" file="sinks/log_sink.go:16" rule=rule1 //不一样的,此时sink result已经出现了
+//接下来提示连接到了mqtt客户端
+time="2021-07-09 06:33:06" level=info msg="The connection to server tcp://broker.emqx.io:1883 was established successfully" file="sinks/mqtt_sink.go:182" rule=rule1 
+time="2021-07-09 06:33:11" level=info msg="sink result for rule rule1: [{\"Bool\":true}]" file="sinks/log_sink.go:16" rule=rule1
+time="2021-07-09 06:33:21" level=info msg="sink result for rule rule1: [{\"Uint8\":27}]" file="sinks/log_sink.go:16" rule=rule1
+
+连接失败的log：
+time="2021-07-09 06:48:00" level=info msg="Rule rule2 is created." file="processors/xsql_processor.go:319"
+time="2021-07-09 06:48:00" level=info msg="Init rule with options &{IsEventTime:false LateTol:1000 Concurrency:1 BufferLength:1024 SendMetaToSink:false SendError:true Qos:0 CheckpointInterval:300000}" file="planner/planner.go:26"
+time="2021-07-09 06:48:00" level=info msg="Rule rule2 is replaced." file="processors/xsql_processor.go:368"
+time="2021-07-09 06:48:00" level=info msg="Opening stream" file="xstream/streams.go:132" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="open source node demo with option &{  JSON  edgex false   0}" file="nodes/source_node.go:63" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="open sink node 1 instances" file="nodes/sink_node.go:164" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="Opening mqtt sink for rule rule2." file="sinks/mqtt_sink.go:134" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="Connect MQTT broker with username and password." file="sinks/mqtt_sink.go:153" rule=rule2 //username
+time="2021-07-09 06:48:00" level=info msg="open source node 1 instances" file="nodes/source_node.go:86" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="Use configuration for edgex messagebus {{ 0 } {edgex-redis 6379 redis} redis map[]}" file="extensions/edgex_source.go:91"
+time="2021-07-09 06:48:00" level=info msg="Start source demo instance 0 successfully" file="nodes/source_node.go:135" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="The connection to edgex messagebus is established successfully." file="extensions/edgex_source.go:102" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="Successfully subscribed to edgex messagebus topic rules-events." file="extensions/edgex_source.go:111" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="open sink node 1 instances" file="nodes/sink_node.go:164" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="Opening func collector" file="collectors/func.go:36" rule=rule2
+、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、
+time="2021-07-09 06:48:00" level=error msg="error in sink Found error: not Authorized" file="nodes/sink_node.go:440" rule=rule2 //认证失败
+time="2021-07-09 06:48:00" level=info msg="closing rule rule2 for error: Found error: not Authorized" file="server/ruleManager.go:97"//关闭规则rule2
+time="2021-07-09 06:48:00" level=info msg="topo rule2 drain error <nil>, but receiver closed so ignored" file="xstream/streams.go:118" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="unary operator 1_preprocessor_demo instance 0 cancelling...." file="nodes/operations.go:127" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="unary operator 1_preprocessor_demo instance 0 done, cancelling future items" file="nodes/operations.go:85" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="sink node log_1 instance 0 done" file="nodes/sink_node.go:215" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="source demo done" file="nodes/source_node.go:139" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="unary operator 2_project instance 0 cancelling...." file="nodes/operations.go:127" rule=rule2
+time="2021-07-09 06:48:00" level=info msg="unary operator 2_project instance 0 done, cancelling future items" file="nodes/operations.go:85" rule=rule2
+
+
+
+
+time="2021-07-09 06:43:24" level=info msg="Rule rule2-rd2 is created." file="processors/xsql_processor.go:319"
+time="2021-07-09 06:43:24" level=info msg="Init rule with options &{IsEventTime:false LateTol:1000 Concurrency:1 BufferLength:1024 SendMetaToSink:false SendError:true Qos:0 CheckpointInterval:300000}" file="planner/planner.go:26"
+time="2021-07-09 06:43:24" level=info msg="Rule rule2-rd2 is replaced." file="processors/xsql_processor.go:368"
+time="2021-07-09 06:43:24" level=info msg="Opening stream" file="xstream/streams.go:132" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="open source node demo with option &{  JSON  edgex false   0}" file="nodes/source_node.go:63" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="open source node 1 instances" file="nodes/source_node.go:86" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="Use configuration for edgex messagebus {{ 0 } {edgex-redis 6379 redis} redis map[]}" file="extensions/edgex_source.go:91"
+time="2021-07-09 06:43:24" level=info msg="Start source demo instance 0 successfully" file="nodes/source_node.go:135" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="The connection to edgex messagebus is established successfully." file="extensions/edgex_source.go:102" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="Successfully subscribed to edgex messagebus topic rules-events." file="extensions/edgex_source.go:111" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="open sink node 1 instances" file="nodes/sink_node.go:164" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="Opening func collector" file="collectors/func.go:36" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="open sink node 1 instances" file="nodes/sink_node.go:164" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="Opening mqtt sink for rule rule2-rd2." file="sinks/mqtt_sink.go:134" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="Connect MQTT broker with username and password." file="sinks/mqtt_sink.go:153" rule=rule2-rd2
+、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、、
+time="2021-07-09 06:43:24" level=error msg="error in sink Found error: network Error : dial tcp: missing address" file="nodes/sink_node.go:440" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="closing rule rule2-rd2 for error: Found error: network Error : dial tcp: missing address" file="server/ruleManager.go:97"
+time="2021-07-09 06:43:24" level=info msg="topo rule2-rd2 drain error <nil>, but receiver closed so ignored" file="xstream/streams.go:118" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="unary operator 1_preprocessor_demo instance 0 cancelling...." file="nodes/operations.go:127" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="unary operator 1_preprocessor_demo instance 0 done, cancelling future items" file="nodes/operations.go:85" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="source demo done" file="nodes/source_node.go:139" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="sink node log_1 instance 0 done" file="nodes/sink_node.go:215" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="unary operator 2_project instance 0 cancelling...." file="nodes/operations.go:127" rule=rule2-rd2
+time="2021-07-09 06:43:24" level=info msg="unary operator 2_project instance 0 done, cancelling future items" file="nodes/operations.go:85" rule=rule2-rd2
+
+
+
